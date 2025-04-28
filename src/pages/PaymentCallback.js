@@ -73,6 +73,7 @@ const PaymentCallback = () => {
   const { setSelectedSeats, resetBooking, setRecentTickets } = useBooking();
   const [status, setStatus] = useState(null);
   const [message, setMessage] = useState('');
+  const [ticketDetails, setTicketDetails] = useState(null);
   const backendUrl = process.env.REACT_APP_API_URL || 'https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net';
 
   useEffect(() => {
@@ -85,38 +86,37 @@ const PaymentCallback = () => {
         });
 
         const isSuccess = paymentResponse.data;
+        console.log(isSuccess);
         if (isSuccess) {
           setStatus('success');
           setMessage('Thanh toán thành công.');
+          const ticketResponse = await axios.get(`${backendUrl}/Ticket/GetTicketByCurrentAppTransId/geticketbycurrentapptransid`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+  
+          if (ticketResponse) {
+            const data = ticketResponse.data;
+          
+            const tickets = data[0]?.tickets || [];
+            if (tickets.length > 0) {
+              const { title, startTime, endTime, roomNumber } = tickets[0];
+              const seats = tickets.map(ticket => ticket.seatNumber);
+          
+              setTicketDetails({
+                title,
+                startTime,
+                endTime,
+                roomNumber,
+                seats,
+              });
+            }
+          }
         } else {
           setStatus('error');
           setMessage('Thanh toán thất bại. Vé đã bị hủy.');
         }
-
-        const ticketResponse = await axios.get(`${backendUrl}/Ticket/GetTicketByCurrentAppTransId/geticketbycurrentapptransid`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
-
-        const ticketDetails = (() => {
-          const tickets = ticketResponse[0]?.tickets || [];
-          if (tickets.length === 0) return null;
-
-          const { title, startTime, endTime, roomNumber } = tickets[0];
-          const seats = tickets.map(ticket => ticket.seatNumber);
-          const totalPrice = seats.length * ticketPrice;
-
-          return {
-            title,
-            startTime,
-            endTime,
-            roomNumber,
-            seats,
-            totalPrice,
-          };
-        })();
-
       } catch (error) {
         setStatus('error');
         setMessage(error.response?.data?.message || 'Đã có lỗi xảy ra. Vui lòng liên hệ hỗ trợ.');
@@ -156,12 +156,6 @@ const PaymentCallback = () => {
             <DetailRow>
               <span>Ghế:</span>
               <span>{ticketDetails.seats.join(', ') || 'N/A'}</span>
-            </DetailRow>
-            <DetailRow>
-              <span>Tổng tiền:</span>
-              <span>
-                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(ticketDetails.totalPrice)}
-              </span>
             </DetailRow>
           </TicketDetails>
         )}
