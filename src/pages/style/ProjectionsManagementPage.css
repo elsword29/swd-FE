@@ -1,0 +1,60 @@
+.projections-management {
+    width: 100%;
+  }
+  
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  
+  .filters-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .search-filter {
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  .advanced-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  
+  .projections-table {
+    margin-top: 16px;
+  }
+  
+  @media (max-width: 992px) {
+    .filters-container {
+      flex-direction: column;
+    }
+    
+    .advanced-filters {
+      margin-top: 16px;
+    }
+    
+    .advanced-filters .ant-select,
+    .advanced-filters .ant-picker {
+      width: 100% !important;
+      margin-bottom: 8px;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .page-header .ant-btn {
+      margin-top: 16px;
+      width: 100%;
+    }
+  }

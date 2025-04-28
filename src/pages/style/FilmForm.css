@@ -1,0 +1,94 @@
+.film-form-container {
+    width: 100%;
+  }
+  
+  .form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+  }
+  
+  .loading-container .ant-typography {
+    margin-top: 16px;
+  }
+  
+  .film-form .ant-form-item {
+    margin-bottom: 16px;
+  }
+  
+  .form-submit-buttons {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 24px;
+  }
+  
+  .poster-upload-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .poster-preview {
+    position: relative;
+    width: 100%;
+    max-width: 200px;
+    margin-bottom: 8px;
+  }
+  
+  .poster-preview img {
+    width: 100%;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .delete-poster-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background-color: rgba(255, 255, 255, 0.8);
+  }
+  
+  .upload-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 128px;
+  }
+  
+  .upload-hint {
+    margin-top: 8px;
+    text-align: center;
+  }
+  
+  .ant-upload.ant-upload-select-picture-card {
+    width: 100%;
+    margin-right: 0;
+  }
+  
+  @media (max-width: 768px) {
+    .form-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .form-actions {
+      margin-top: 16px;
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+    }
+    
+    .poster-preview {
+      max-width: none;
+    }
+  }
