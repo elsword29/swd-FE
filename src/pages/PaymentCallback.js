@@ -90,32 +90,33 @@ const PaymentCallback = () => {
         if (isSuccess) {
           setStatus('success');
           setMessage('Thanh toán thành công.');
-          const ticketResponse = await axios.get(`${backendUrl}/Ticket/GetTicketByCurrentAppTransId/geticketbycurrentapptransid`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          });
-  
-          if (ticketResponse) {
-            const data = ticketResponse.data;
-          
-            const tickets = data[0]?.tickets || [];
-            if (tickets.length > 0) {
-              const { title, startTime, endTime, roomNumber } = tickets[0];
-              const seats = tickets.map(ticket => ticket.seatNumber);
-          
-              setTicketDetails({
-                title,
-                startTime,
-                endTime,
-                roomNumber,
-                seats,
-              });
-            }
-          }
         } else {
           setStatus('error');
           setMessage('Thanh toán thất bại. Vé đã bị hủy.');
+        }
+
+        const ticketResponse = await axios.get(`${backendUrl}/Ticket/GetTicketByCurrentAppTransId/geticketbycurrentapptransid`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        if (ticketResponse) {
+          const data = ticketResponse.data;
+        
+          const tickets = data[0]?.tickets || [];
+          if (tickets.length > 0) {
+            const { title, startTime, endTime, roomNumber } = tickets[0];
+            const seats = tickets.map(ticket => ticket.seatNumber);
+        
+            setTicketDetails({
+              title,
+              startTime,
+              endTime,
+              roomNumber,
+              seats,
+            });
+          }
         }
       } catch (error) {
         setStatus('error');
