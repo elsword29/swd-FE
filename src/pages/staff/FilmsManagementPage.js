@@ -26,9 +26,6 @@ import '../style/FilmsManagementPage.css';
 const { Title } = Typography;
 const { confirm } = Modal;
 
-// Mock data for fallback when API fails
-//import { mockFilms, getMockFilms, deleteMockFilm } from './mockFilmData';
-
 const FilmsManagementPage = () => {
   const [films, setFilms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +35,8 @@ const FilmsManagementPage = () => {
     pageSize: 10,
     total: 0,
   });
-  //const [usingMockData, setUsingMockData] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [filmToDelete, setFilmToDelete] = useState(null);
 
   // Function to map status code to display text
   const getStatusLabel = (statusCode) => {
@@ -80,12 +78,8 @@ const FilmsManagementPage = () => {
       try {
         // Try to fetch from real API first
         response = await movieService.getAll();
-       // setUsingMockData(false);
       } catch (apiError) {
-        console.warn("API error, using mock data instead:", apiError);
-        // Fallback to mock data if API fails
-        //response = { data: mockFilms };
-       // setUsingMockData(true);
+        console.warn("API error:", apiError);
       }
       
       // Process the response data to format it for the table
@@ -139,33 +133,44 @@ const FilmsManagementPage = () => {
     setPagination(pagination);
   };
 
-  const handleDeleteFilm = (filmId) => {
-    confirm({
-      title: 'Bạn có chắc chắn muốn xóa phim này?',
-      icon: <ExclamationCircleOutlined />,
-      content: 'Hành động này không thể hoàn tác.',
-      okText: 'Xóa',
-      okType: 'danger',
-      cancelText: 'Hủy',
-      async onOk() {
-        try {
-          try {
-            // Try to call the real API first
-            await movieService.delete(filmId);
-          } catch (apiError) {
-            // Fall back to mock delete if real API fails
-            console.warn("API delete error, using mock delete instead:", apiError);
-           // await deleteMockFilm(filmId);
-          }
-          
-          message.success('Xóa phim thành công');
-          fetchFilms();
-        } catch (error) {
-          console.error("Error deleting film:", error);
-          message.error('Xóa phim thất bại');
-        }
-      },
-    });
+  const handleDeleteClick = (filmId) => {
+    const film = films.find(f => f.id === filmId);
+    if (!film) {
+      message.error('Không tìm thấy thông tin phim');
+      return;
+    }
+    setFilmToDelete(film);
+    setDeleteModalVisible(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!filmToDelete) return;
+    
+    try {
+      setLoading(true);
+      console.log('Deleting film with ID:', filmToDelete.id);
+      
+      // Call API to delete the film
+      await movieService.delete(filmToDelete.id);
+      
+      message.success('Xóa phim thành công');
+      
+      // Close modal and clear selection
+      setDeleteModalVisible(false);
+      setFilmToDelete(null);
+      
+      // Refresh the films data
+      fetchFilms();
+    } catch (error) {
+      console.error("Error deleting film:", error);
+      message.error('Xóa phim thất bại');
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalVisible(false);
+    setFilmToDelete(null);
   };
 
   const filteredFilms = films.filter(film => {
@@ -266,7 +271,7 @@ const FilmsManagementPage = () => {
               danger 
               icon={<DeleteOutlined />} 
               size="small" 
-              onClick={() => handleDeleteFilm(record.id)}
+              onClick={() => handleDeleteClick(record.id)}
             />
           </Tooltip>
         </Space>
@@ -305,6 +310,38 @@ const FilmsManagementPage = () => {
         onChange={handleTableChange}
         className="films-table"
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title="Xác nhận xóa phim"
+        open={deleteModalVisible}
+        onOk={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        okText="Xóa"
+        cancelText="Hủy"
+        okType="danger"
+      >
+        {filmToDelete && (
+          <div>
+            <div style={{ display: 'flex', marginBottom: '16px' }}>
+              <div style={{ marginRight: '16px' }}>
+                <img 
+                  src={filmToDelete.posterURL || 'https://via.placeholder.com/120x180?text=No+Image'} 
+                  alt={filmToDelete.title}
+                  style={{ width: 80, height: 120, objectFit: 'cover' }}
+                />
+              </div>
+              <div>
+                <p><strong>Tên phim:</strong> {filmToDelete.title}</p>
+                <p><strong>Thời lượng:</strong> {filmToDelete.duration} phút</p>
+                <p><strong>Trạng thái:</strong> <Tag color={getStatusColor(filmToDelete.status)}>{filmToDelete.statusLabel}</Tag></p>
+                <p><strong>Thể loại:</strong> {filmToDelete.genreNames && filmToDelete.genreNames.join(', ')}</p>
+              </div>
+            </div>
+            <p style={{ color: 'red' }}>Bạn có chắc chắn muốn xóa phim này? Hành động này không thể hoàn tác và sẽ ảnh hưởng đến tất cả lịch chiếu và đặt vé liên quan.</p>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

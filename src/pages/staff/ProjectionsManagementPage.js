@@ -118,58 +118,50 @@ const ProjectionsManagementPage = () => {
     setFilterDateRange(dates);
   };
 
-  const handleDeleteProjection = (projectionId) => {
-    console.log('Delete button clicked, projectionId:', projectionId);
-    confirm({
-      title: 'Bạn có chắc chắn muốn xóa suất chiếu này?',
-      icon: <ExclamationCircleOutlined />,
-      content: 'Việc xóa có thể ảnh hưởng đến các đặt vé đã có.',
-      okText: 'Xóa',
-      okType: 'danger',
-      cancelText: 'Hủy',
-      async onOk() {
-        try {
-          console.log('Attempting to delete projection with ID:', projectionId);
-          
-          // Show loading message
-          const loadingMessage = message.loading('Đang xóa suất chiếu...', 0);
-          
-          // Check if projectionId is valid
-          if (!projectionId) {
-            throw new Error('Invalid projection ID');
-          }
-          
-          // Make the delete request
-          const response = await projectionService.delete(projectionId);
-          console.log('Delete response:', response);
-          
-          // Close loading message
-          loadingMessage();
-          
-          if (response && response.status === 200) {
-            message.success('Xóa suất chiếu thành công');
-            // Refresh the projections list
-            await fetchProjections();
-          } else {
-            throw new Error('Delete request failed with status: ' + (response?.status || 'unknown'));
-          }
-        } catch (error) {
-          console.error("Error deleting projection:", error);
-          console.error("Error details:", {
-            message: error.message,
-            response: error.response?.data,
-            status: error.response?.status,
-            config: error.config
-          });
-          
-          // Show error message with more details
-          const errorMessage = error.response?.data?.message || error.message;
-          message.error(`Xóa suất chiếu thất bại: ${errorMessage}`);
-        }
-      },
-    });
-  };
+// First, add a state for the modal at the top of your component
+const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+const [projectionToDelete, setProjectionToDelete] = useState(null);
 
+// Replace your handleDeleteProjection function with this:
+const handleDeleteClick = (projectionId) => {
+  const projection = projections.find(p => p.id === projectionId);
+  if (!projection) {
+    message.error('Không tìm thấy thông tin suất chiếu');
+    return;
+  }
+  setProjectionToDelete(projection);
+  setDeleteModalVisible(true);
+};
+
+const handleDeleteConfirm = async () => {
+  if (!projectionToDelete) return;
+  
+  try {
+    setLoading(true);
+    console.log('Deleting projection with ID:', projectionToDelete.id);
+    
+    // Call API to delete the projection
+    await projectionService.delete(projectionToDelete.id);
+    
+    message.success('Xóa suất chiếu thành công');
+    
+    // Close modal and clear selection
+    setDeleteModalVisible(false);
+    setProjectionToDelete(null);
+    
+    // Refresh the projections data
+    fetchProjections();
+  } catch (error) {
+    console.error("Error deleting projection:", error);
+    message.error('Xóa suất chiếu thất bại');
+    setLoading(false);
+  }
+};
+
+const handleDeleteCancel = () => {
+  setDeleteModalVisible(false);
+  setProjectionToDelete(null);
+};
   // Apply filters to projections
   const filteredProjections = projections.filter(projection => {
     // Search text filter
@@ -294,7 +286,7 @@ const ProjectionsManagementPage = () => {
               danger 
               icon={<DeleteOutlined />} 
               size="small" 
-              onClick={() => handleDeleteProjection(record.id)}
+              onClick={() => handleDeleteClick(record.id)}
             />
           </Tooltip>
         </Space>
@@ -380,6 +372,25 @@ const ProjectionsManagementPage = () => {
         onChange={handleTableChange}
         className="projections-table"
       />
+      <Modal
+  title="Xác nhận xóa suất chiếu"
+  open={deleteModalVisible}
+  onOk={handleDeleteConfirm}
+  onCancel={handleDeleteCancel}
+  okText="Xóa"
+  cancelText="Hủy"
+  okType="danger"
+>
+  {projectionToDelete && (
+    <div>
+      <p><strong>Phim:</strong> {projectionToDelete.film ? projectionToDelete.film.title : 'N/A'}</p>
+      <p><strong>Phòng chiếu:</strong> {projectionToDelete.room && projectionToDelete.room.roomNumber ? projectionToDelete.room.roomNumber : 'N/A'}</p>
+      <p><strong>Thời gian:</strong> {formatDateTime(projectionToDelete.startTime)} - {formatDateTime(projectionToDelete.endTime)}</p>
+      <p><strong>Giá vé:</strong> {projectionToDelete.price ? projectionToDelete.price.toLocaleString('vi-VN') : 'N/A'} VNĐ</p>
+      <p style={{ color: 'red' }}>Việc xóa có thể ảnh hưởng đến các đặt vé đã có.</p>
+    </div>
+  )}
+</Modal>
     </div>
   );
 };

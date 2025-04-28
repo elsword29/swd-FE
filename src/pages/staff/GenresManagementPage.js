@@ -48,6 +48,8 @@ const GenresManagementPage = () => {
   const [editingGenre, setEditingGenre] = useState(null);
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [genreToDelete, setGenreToDelete] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -135,33 +137,44 @@ const GenresManagementPage = () => {
     }
   };
 
-  const handleDeleteGenre = (genreId) => {
-    // Check if this genre has associated films
-    const filmCount = filmGenres.filter(fg => fg.genreId === genreId).length;
+  const handleDeleteClick = (genreId) => {
+    const genre = genres.find(g => g.id === genreId);
+    if (!genre) {
+      message.error('Không tìm thấy thông tin thể loại');
+      return;
+    }
+    setGenreToDelete(genre);
+    setDeleteModalVisible(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!genreToDelete) return;
     
-    // Create warning message based on film count
-    const warningMessage = filmCount > 0 
-      ? `Thể loại này đang được sử dụng bởi ${filmCount} phim. Việc xóa có thể ảnh hưởng đến các phim này.`
-      : 'Bạn có chắc chắn muốn xóa thể loại này?';
-    
-    confirm({
-      title: 'Xóa thể loại',
-      icon: <ExclamationCircleOutlined />,
-      content: warningMessage,
-      okText: 'Xóa',
-      okType: 'danger',
-      cancelText: 'Hủy',
-      async onOk() {
-        try {
-          await genreService.delete(genreId);
-          message.success('Xóa thể loại thành công');
-          fetchData(); // Fetch all data again to update film counts
-        } catch (error) {
-          console.error("Error deleting genre:", error);
-          message.error('Xóa thể loại thất bại');
-        }
-      },
-    });
+    try {
+      setLoading(true);
+      console.log('Deleting genre with ID:', genreToDelete.id);
+      
+      // Call API to delete the genre
+      await genreService.delete(genreToDelete.id);
+      
+      message.success('Xóa thể loại thành công');
+      
+      // Close modal and clear selection
+      setDeleteModalVisible(false);
+      setGenreToDelete(null);
+      
+      // Refresh the data
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting genre:", error);
+      message.error('Xóa thể loại thất bại');
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalVisible(false);
+    setGenreToDelete(null);
   };
 
   const filteredGenres = genres.filter(genre => {
@@ -174,12 +187,6 @@ const GenresManagementPage = () => {
       dataIndex: 'name',
       key: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
-    },
-    {
-      title: 'Mô tả',
-      dataIndex: 'description',
-      key: 'description',
-      ellipsis: true,
     },
     {
       title: 'Số phim',
@@ -213,9 +220,7 @@ const GenresManagementPage = () => {
               danger 
               icon={<DeleteOutlined />} 
               size="small" 
-              onClick={() => handleDeleteGenre(record.id)}
-              // Disable delete button if genre has associated films
-              // disabled={record.filmCount > 0}
+              onClick={() => handleDeleteClick(record.id)}
             />
           </Tooltip>
         </Space>
@@ -254,6 +259,7 @@ const GenresManagementPage = () => {
         className="genres-table"
       />
       
+      {/* Add/Edit Modal */}
       <Modal
         title={modalTitle}
         open={modalVisible}
@@ -291,6 +297,31 @@ const GenresManagementPage = () => {
             <Input.TextArea rows={4} placeholder="Nhập mô tả thể loại" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title="Xác nhận xóa thể loại"
+        open={deleteModalVisible}
+        onOk={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        okText="Xóa"
+        cancelText="Hủy"
+        okType="danger"
+      >
+        {genreToDelete && (
+          <div>
+            <p><strong>Tên thể loại:</strong> {genreToDelete.name}</p>
+            {genreToDelete.filmCount > 0 ? (
+              <p style={{ color: 'red' }}>
+                Thể loại này đang được sử dụng bởi {genreToDelete.filmCount} phim. 
+                Việc xóa có thể ảnh hưởng đến các phim này.
+              </p>
+            ) : (
+              <p>Bạn có chắc chắn muốn xóa thể loại này?</p>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );
