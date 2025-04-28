@@ -5,10 +5,11 @@ import {
   Space, 
   Typography, 
   Input, 
-   Modal, 
+  Modal, 
   Form, 
   message,
-  Tooltip
+  Tooltip,
+  Badge
 } from 'antd';
 import { 
   PlusOutlined, 
@@ -24,8 +25,22 @@ import '../style/GenresManagementPage.css';
 const { Title } = Typography;
 const { confirm } = Modal;
 
+// Add FilmGenre service for counting films per genre
+const filmGenreService = {
+  getAll: () => {
+    return fetch('https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net/api/FilmGenre')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      });
+  }
+};
+
 const GenresManagementPage = () => {
   const [genres, setGenres] = useState([]);
+  const [filmGenres, setFilmGenres] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
@@ -35,18 +50,37 @@ const GenresManagementPage = () => {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchGenres();
+    fetchData();
   }, []);
 
-  const fetchGenres = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await genreService.getAll();
-      setGenres(response.data);
+      
+      // Fetch genres and film genres in parallel
+      const [genresResponse, filmGenresResponse] = await Promise.all([
+        genreService.getAll(),
+        filmGenreService.getAll()
+      ]);
+      
+      // Store film genres data
+      setFilmGenres(filmGenresResponse);
+      
+      // Process genres with film counts
+      const genresWithFilmCounts = genresResponse.data.map(genre => {
+        // Count films associated with this genre
+        const count = filmGenresResponse.filter(fg => fg.genreId === genre.id).length;
+        return {
+          ...genre,
+          filmCount: count
+        };
+      });
+      
+      setGenres(genresWithFilmCounts);
       setLoading(false);
     } catch (error) {
-      console.error("Error fetching genres:", error);
-      message.error('Không thể tải danh sách thể loại');
+      console.error("Error fetching data:", error);
+      message.error('Không thể tải dữ liệu thể loại');
       setLoading(false);
     }
   };
@@ -92,7 +126,7 @@ const GenresManagementPage = () => {
       }
 
       setModalVisible(false);
-      fetchGenres();
+      fetchData(); // Fetch all data again to update film counts
       setSubmitting(false);
     } catch (error) {
       console.error("Error submitting genre:", error);
@@ -102,10 +136,18 @@ const GenresManagementPage = () => {
   };
 
   const handleDeleteGenre = (genreId) => {
+    // Check if this genre has associated films
+    const filmCount = filmGenres.filter(fg => fg.genreId === genreId).length;
+    
+    // Create warning message based on film count
+    const warningMessage = filmCount > 0 
+      ? `Thể loại này đang được sử dụng bởi ${filmCount} phim. Việc xóa có thể ảnh hưởng đến các phim này.`
+      : 'Bạn có chắc chắn muốn xóa thể loại này?';
+    
     confirm({
-      title: 'Bạn có chắc chắn muốn xóa thể loại này?',
+      title: 'Xóa thể loại',
       icon: <ExclamationCircleOutlined />,
-      content: 'Xóa thể loại có thể ảnh hưởng đến các phim đã sử dụng thể loại này.',
+      content: warningMessage,
       okText: 'Xóa',
       okType: 'danger',
       cancelText: 'Hủy',
@@ -113,7 +155,7 @@ const GenresManagementPage = () => {
         try {
           await genreService.delete(genreId);
           message.success('Xóa thể loại thành công');
-          fetchGenres();
+          fetchData(); // Fetch all data again to update film counts
         } catch (error) {
           console.error("Error deleting genre:", error);
           message.error('Xóa thể loại thất bại');
@@ -143,8 +185,14 @@ const GenresManagementPage = () => {
       title: 'Số phim',
       dataIndex: 'filmCount',
       key: 'filmCount',
-      render: (_, record) => record.films ? record.films.length : 0,
-      sorter: (a, b) => (a.films ? a.films.length : 0) - (b.films ? b.films.length : 0),
+      render: (filmCount) => (
+        <Badge 
+          count={filmCount} 
+          style={{ backgroundColor: filmCount > 0 ? '#108ee9' : '#d9d9d9' }} 
+          showZero 
+        />
+      ),
+      sorter: (a, b) => a.filmCount - b.filmCount,
     },
     {
       title: 'Thao tác',
@@ -166,6 +214,8 @@ const GenresManagementPage = () => {
               icon={<DeleteOutlined />} 
               size="small" 
               onClick={() => handleDeleteGenre(record.id)}
+              // Disable delete button if genre has associated films
+              // disabled={record.filmCount > 0}
             />
           </Tooltip>
         </Space>

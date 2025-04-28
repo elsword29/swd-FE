@@ -49,7 +49,12 @@ const ProjectionsManagementPage = () => {
     fetchProjections();
     fetchFilms();
     fetchRooms();
-  }, [pagination.current, pagination.pageSize, filterFilm, filterRoom, filterDateRange]);
+  }, [pagination.current, pagination.pageSize]);
+
+  useEffect(() => {
+    // Apply filters when they change
+    filterProjections();
+  }, [filterFilm, filterRoom, filterDateRange, searchText]);
 
   const fetchProjections = async () => {
     try {
@@ -88,6 +93,11 @@ const ProjectionsManagementPage = () => {
     }
   };
 
+  const filterProjections = () => {
+    // This will trigger the filter without refetching data from API
+    setPagination({...pagination});
+  };
+
   const handleTableChange = (pagination) => {
     setPagination(pagination);
   };
@@ -109,6 +119,7 @@ const ProjectionsManagementPage = () => {
   };
 
   const handleDeleteProjection = (projectionId) => {
+    console.log('Delete button clicked, projectionId:', projectionId);
     confirm({
       title: 'Bạn có chắc chắn muốn xóa suất chiếu này?',
       icon: <ExclamationCircleOutlined />,
@@ -118,12 +129,42 @@ const ProjectionsManagementPage = () => {
       cancelText: 'Hủy',
       async onOk() {
         try {
-          await projectionService.delete(projectionId);
-          message.success('Xóa suất chiếu thành công');
-          fetchProjections();
+          console.log('Attempting to delete projection with ID:', projectionId);
+          
+          // Show loading message
+          const loadingMessage = message.loading('Đang xóa suất chiếu...', 0);
+          
+          // Check if projectionId is valid
+          if (!projectionId) {
+            throw new Error('Invalid projection ID');
+          }
+          
+          // Make the delete request
+          const response = await projectionService.delete(projectionId);
+          console.log('Delete response:', response);
+          
+          // Close loading message
+          loadingMessage();
+          
+          if (response && response.status === 200) {
+            message.success('Xóa suất chiếu thành công');
+            // Refresh the projections list
+            await fetchProjections();
+          } else {
+            throw new Error('Delete request failed with status: ' + (response?.status || 'unknown'));
+          }
         } catch (error) {
           console.error("Error deleting projection:", error);
-          message.error('Xóa suất chiếu thất bại');
+          console.error("Error details:", {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            config: error.config
+          });
+          
+          // Show error message with more details
+          const errorMessage = error.response?.data?.message || error.message;
+          message.error(`Xóa suất chiếu thất bại: ${errorMessage}`);
         }
       },
     });
@@ -135,17 +176,17 @@ const ProjectionsManagementPage = () => {
     const searchFilter = 
       searchText === '' || 
       (projection.film && projection.film.title.toLowerCase().includes(searchText.toLowerCase())) ||
-      (projection.room && projection.room.name.toLowerCase().includes(searchText.toLowerCase()));
+      (projection.room && projection.room.roomNumber && projection.room.roomNumber.toLowerCase().includes(searchText.toLowerCase()));
     
-    // Film filter
+    // Film filter - match by title
     const filmFilter = 
       !filterFilm || 
-      (projection.film && projection.film.id === filterFilm);
+      (projection.film && projection.film.title === filterFilm);
     
-    // Room filter
+    // Room filter - match by room.roomNumber
     const roomFilter = 
       !filterRoom || 
-      (projection.room && projection.room.id === filterRoom);
+      (projection.room && projection.room.roomNumber === filterRoom);
     
     // Date range filter
     let dateFilter = true;
@@ -177,12 +218,16 @@ const ProjectionsManagementPage = () => {
     },
     {
       title: 'Phòng chiếu',
-      dataIndex: ['room', 'name'],
-      key: 'room',
+      dataIndex: ['room', 'roomNumber'],
+      key: 'roomNumber',
       render: (text, record) => (
-        record.room ? record.room.name : 'N/A'
+        record.room && record.room.roomNumber ? record.room.roomNumber : 'N/A'
       ),
-      sorter: (a, b) => (a.room && b.room) ? a.room.name.localeCompare(b.room.name) : 0,
+      sorter: (a, b) => {
+        const roomA = a.room && a.room.roomNumber ? a.room.roomNumber : '';
+        const roomB = b.room && b.room.roomNumber ? b.room.roomNumber : '';
+        return roomA.localeCompare(roomB);
+      },
     },
     {
       title: 'Thời gian bắt đầu',
@@ -257,6 +302,20 @@ const ProjectionsManagementPage = () => {
     },
   ];
 
+  // Get film titles for dropdown
+  const filmTitles = Array.from(new Set(
+    projections
+      .filter(p => p.film && p.film.title)
+      .map(p => p.film.title)
+  )).sort();
+
+  // Get room numbers for dropdown
+  const roomNumbers = Array.from(new Set(
+    projections
+      .filter(p => p.room && p.room.roomNumber)
+      .map(p => p.room.roomNumber)
+  )).sort();
+
   return (
     <div className="projections-management">
       <div className="page-header">
@@ -288,8 +347,8 @@ const ProjectionsManagementPage = () => {
             showSearch
             optionFilterProp="children"
           >
-            {films.map(film => (
-              <Option key={film.id} value={film.id}>{film.title}</Option>
+            {filmTitles.map(title => (
+              <Option key={title} value={title}>{title}</Option>
             ))}
           </Select>
           
@@ -299,8 +358,8 @@ const ProjectionsManagementPage = () => {
             onChange={handleFilterRoom}
             allowClear
           >
-            {rooms.map(room => (
-              <Option key={room.id} value={room.id}>{room.name}</Option>
+            {roomNumbers.map(roomNumber => (
+              <Option key={roomNumber} value={roomNumber}>{roomNumber}</Option>
             ))}
           </Select>
           

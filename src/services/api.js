@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net';
+const API_URL = 'https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -8,6 +8,8 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+const BASE_URL = 'https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net';
 
 api.interceptors.request.use(
   (config) => {
@@ -207,5 +209,94 @@ export const bookingService = {
   update: (id, bookingData) => api.put(`/api/bookings/${id}`, bookingData),
   delete: (id) => api.delete(`/api/bookings/${id}`),
 };
+export const filmGenreService = {
+  getAll: () => api.get('/FilmGenre'),
+  getById: (id) => api.get(`/FilmGenre/${id}`),
+  create: (filmGenreData) => api.post('/FilmGenre', filmGenreData),
+  update: (id, filmGenreData) => api.put(`/FilmGenre/${id}`, filmGenreData),
+  delete: (id) => api.delete(`/FilmGenre/${id}`),
+  getPaged: (params) => api.get('/FilmGenre/paged', { params }),
+  getByFilm: (filmId) => api.get(`/FilmGenre/by-film/${filmId}`),
+  getByGenre: (genreId) => api.get(`/FilmGenre/by-genre/${genreId}`),
+};
+
+export const genreService = {
+  getAll: () => api.get('/Genre'),
+  getById: (id) => api.get(`/Genre/${id}`),
+  create: (genreData) => api.post('/Genre', genreData),
+  update: (id, genreData) => api.put(`/Genre/${id}`, genreData),
+  delete: (id) => api.delete(`/Genre/${id}`),
+  getPaged: (params) => api.get('/Genre/paged', { params }),
+  find: (id) => api.get(`/Genre/find/${id}`),
+};
+
+export const projectionService = {
+  getAll: () => api.get('/Projection'),
+  getById: (id) => api.get(`/Projection/${id}`),
+  create: (projectionData) => api.post('/Projection', projectionData),
+  update: (id, projectionData) => api.put(`/Projection/${id}`, projectionData),
+  delete: async (id) => {
+    try {
+      console.log('ProjectionService.delete called with ID:', id);
+      // Make sure the ID is properly formatted
+      const formattedId = id.trim();
+      console.log('Formatted ID:', formattedId);
+      
+      // Log the full URL being called
+      const fullUrl = `https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net/api/Projection/${formattedId}`;
+      console.log('Full delete URL:', fullUrl);
+      
+      // Make the delete request with proper headers
+      const response = await api.delete(`/Projection/${formattedId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      console.log('ProjectionService.delete response:', response);
+      return response;
+    } catch (error) {
+      console.error('ProjectionService.delete error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
+      throw error;
+    }
+  },
+  getPaged: (params) => api.get('/Projection/paged', { params }),
+  getByFilm: (filmId) => api.get(`/Projection/by-film/${filmId}`),
+  getByRoom: (roomId) => api.get(`/Projection/by-room/${roomId}`),
+};
+
+export const roomService = {
+  getAll: () => api.get('/Room'),
+  getById: (id) => api.get(`/Room/${id}`),
+  create: (roomData) => api.post('/Room', roomData),
+  update: (id, roomData) => api.put(`/Room/${id}`, roomData),
+  delete: (id) => api.delete(`/Room/${id}`),
+  getByNumber: (roomNumber) => api.get(`/Room/by-number/${roomNumber}`),
+  getByType: (roomType) => api.get(`/Room/by-type/${roomType}`),
+  getBySpecificId: (id) => api.get(`/Room/by-id/${id}`),
+};
+export const ticketService = {
+  createTicket: (ticketData) => axios.post(`${BASE_URL}/Ticket/CreateTicket`, ticketData),
+  getAllMyTickets: (pageNumber, pageSize) => axios.get(`${BASE_URL}/Ticket/GetTicket/getallmyticket/${pageNumber}/${pageSize}`),
+  getTicketsByUserId: (userId, pageNumber, pageSize) => axios.get(`${BASE_URL}/Ticket/GetTicketByUserId/getallticketbyuserid/${userId}/${pageNumber}/${pageSize}`),
+  getAllTickets: (pageNumber, pageSize) => axios.get(`${BASE_URL}/Ticket/GetTickets/getallticketlist/${pageNumber}/${pageSize}`),
+  getTicketById: (ticketId) => axios.get(`${BASE_URL}/Ticket/GetTicketById/${ticketId}`),
+  deleteTicket: (ticketId) => axios.delete(`${BASE_URL}/Ticket/DeleteTicketById`, { data: { id: ticketId } }),
+};
+
+export const zalopayService = {
+  checkOrderStatus: (params) => api.get('/Zalopay/CheckOrderStatus', { params }),
+};
+
+export const testService = {
+  checkConnection: () => api.get('/Test/connection'),
+};
+
 
 export default api;
