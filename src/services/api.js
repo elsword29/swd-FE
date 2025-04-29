@@ -197,6 +197,7 @@ export const seatService = {
   getByShowTimeId: (showTimeId) => api.get(`/api/seat?showTimeId=${showTimeId}`),
   updateSeat: (seatId, seatData) => api.patch(`/api/seat/${seatId}`, seatData),
   getRoomById: (roomId) => api.get(`/api/Room/${roomId}`),
+  getByRoomId: (roomId) => api.get(`/api/Seat/getseatbyroomid/${roomId}`),
 };
 
 export const bookingService = {
