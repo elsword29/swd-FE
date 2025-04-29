@@ -48,15 +48,15 @@ const ProtectedRoute = ({ children }) => {
 // Staff Protected Route
 const StaffProtectedRoute = ({ children }) => {
   const { currentUser, userRole, loading } = useAuth();
-  
+
   if (loading) {
     return <div>Loading...</div>;
   }
-  
+
   if (!currentUser || userRole !== 'staff') {
     return <Navigate to="/staff/login" />;
   }
-  
+
   return children;
 };
 
@@ -75,11 +75,11 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/seat-selection" element={<SeatSelectionPage />} />
             <Route path="/booking/payment-callback" element={<PaymentCallback />} />
-            
-            
+
+
             {/* Protected user routes */}
-            <Route 
-              path="/booking/seats" 
+            <Route
+              path="/booking/seats"
               element={
                 <ProtectedRoute>
                   <SeatSelectionPage />
@@ -94,8 +94,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route 
-              path="/profile" 
+            <Route
+              path="/profile"
               element={
                 <ProtectedRoute>
                   <ProfilePage />
@@ -108,32 +108,32 @@ function App() {
                 <ProtectedRoute>
                   <BookingHistoryPage />
                 </ProtectedRoute>
-              }
-            <Route 
+              } />
+            <Route
               path="/staff"
               element={<StaffLayout />}
             >
               <Route index element={<StaffDashboard />} />
               <Route path="dashboard" element={<StaffDashboard />} />
-              
+
               {/* Film Management Routes */}
               <Route path="films" element={<FilmsManagementPage />} />
               <Route path="films/add" element={<FilmForm mode="add" />} />
               <Route path="films/edit/:id" element={<FilmForm mode="edit" />} />
               <Route path="films/:id/genres" element={<FilmGenreForm />} />
-              
+
               {/* Genre Management Routes */}
               <Route path="genres" element={<GenresManagementPage />} />
-              
+
               {/* Projection Management Routes */}
               <Route path="projections" element={<ProjectionsManagementPage />} />
               <Route path="projections/add" element={<ProjectionForm mode="add" />} />
               <Route path="projections/edit/:id" element={<ProjectionForm mode="edit" />} />
-              
+
               {/* Booking Management Routes */}
               <Route path="bookings" element={<BookingsManagementPage />} />
             </Route>
-            
+
             {/* Fallback route */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
