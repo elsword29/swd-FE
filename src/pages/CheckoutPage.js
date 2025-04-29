@@ -130,6 +130,7 @@ const CheckoutPage = () => {
           },
         }
       );
+      console.log(ticketResponse.data.appTransId)
       if (ticketResponse.data?.redirectUrl) {
         window.location.href = ticketResponse.data.redirectUrl;
       }
