@@ -10,6 +10,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const { token, user } = await authService.login({ email, password });
+    localStorage.setItem('token', token);
     setUser(user);
     return { token, user };
   };
@@ -23,6 +24,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     await authService.logout();
+    localStorage.removeItem('token');
     setUser(null);
   };
 
