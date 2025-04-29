@@ -16,7 +16,8 @@ import {
   EditOutlined, 
   DeleteOutlined, 
   SearchOutlined, 
-  ExclamationCircleOutlined 
+  ExclamationCircleOutlined,
+  TagsOutlined
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { movieService } from '../../services/api';
@@ -34,6 +35,36 @@ const FilmsManagementPage = () => {
     pageSize: 10,
     total: 0,
   });
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [filmToDelete, setFilmToDelete] = useState(null);
+
+  // Function to map status code to display text
+  const getStatusLabel = (statusCode) => {
+    switch (statusCode) {
+      case 0:
+        return 'Sắp chiếu';
+      case 1:
+        return 'Đang chiếu';
+      case 3:
+        return 'Ngừng chiếu';
+      default:
+        return 'Không xác định';
+    }
+  };
+
+  // Function to get status color
+  const getStatusColor = (statusCode) => {
+    switch (statusCode) {
+      case 0:
+        return 'geekblue'; // Sắp chiếu
+      case 1:
+        return 'green'; // Đang chiếu
+      case 3:
+        return 'volcano'; // Ngừng chiếu
+      default:
+        return 'default';
+    }
+  };
 
   useEffect(() => {
     fetchFilms();
@@ -42,19 +73,44 @@ const FilmsManagementPage = () => {
   const fetchFilms = async () => {
     try {
       setLoading(true);
-      const response = await movieService.getAll();
+      let response;
+      
+      try {
+        // Try to fetch from real API first
+        response = await movieService.getAll();
+      } catch (apiError) {
+        console.warn("API error:", apiError);
+      }
       
       // Process the response data to format it for the table
-      const filmsData = response.data.map(film => ({
-        ...film,
-        key: film.id,
-        genreNames: film.filmGenres ? film.filmGenres.map(fg => fg.genre.name) : []
-      }));
+      const filmsData = response.data.map(film => {
+        // Extract year from releaseDate
+        const releaseYear = film.releaseDate ? new Date(film.releaseDate).getFullYear() : null;
+        
+        // Format genres
+        let genreNames = [];
+        if (typeof film.filmGenres === 'string') {
+          // Handle case where filmGenres is a comma-separated string
+          genreNames = film.filmGenres.split(',').map(g => g.trim());
+        } else if (Array.isArray(film.filmGenres)) {
+          // Handle case where filmGenres is an array of objects
+          genreNames = film.filmGenres.map(fg => fg.genre?.name || fg);
+        }
+        
+        return {
+          ...film,
+          key: film.id,
+          posterURL: film.imageURL, // Map imageURL to posterURL for display
+          genreNames: genreNames,
+          releaseYear: releaseYear,
+          statusLabel: getStatusLabel(film.status)
+        };
+      });
       
       setFilms(filmsData);
       setPagination({
         ...pagination,
-        total: response.data.length // Should come from API pagination in real app
+        total: response.data.length
       });
       
       setLoading(false);
@@ -77,34 +133,56 @@ const FilmsManagementPage = () => {
     setPagination(pagination);
   };
 
-  const handleDeleteFilm = (filmId) => {
-    confirm({
-      title: 'Bạn có chắc chắn muốn xóa phim này?',
-      icon: <ExclamationCircleOutlined />,
-      content: 'Hành động này không thể hoàn tác.',
-      okText: 'Xóa',
-      okType: 'danger',
-      cancelText: 'Hủy',
-      async onOk() {
-        try {
-          await movieService.delete(filmId);
-          message.success('Xóa phim thành công');
-          fetchFilms();
-        } catch (error) {
-          console.error("Error deleting film:", error);
-          message.error('Xóa phim thất bại');
-        }
-      },
-    });
+  const handleDeleteClick = (filmId) => {
+    const film = films.find(f => f.id === filmId);
+    if (!film) {
+      message.error('Không tìm thấy thông tin phim');
+      return;
+    }
+    setFilmToDelete(film);
+    setDeleteModalVisible(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!filmToDelete) return;
+    
+    try {
+      setLoading(true);
+      console.log('Deleting film with ID:', filmToDelete.id);
+      
+      // Call API to delete the film
+      await movieService.delete(filmToDelete.id);
+      
+      message.success('Xóa phim thành công');
+      
+      // Close modal and clear selection
+      setDeleteModalVisible(false);
+      setFilmToDelete(null);
+      
+      // Refresh the films data
+      fetchFilms();
+    } catch (error) {
+      console.error("Error deleting film:", error);
+      message.error('Xóa phim thất bại');
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalVisible(false);
+    setFilmToDelete(null);
   };
 
   const filteredFilms = films.filter(film => {
-    return (
-      film.title.toLowerCase().includes(searchText.toLowerCase()) ||
-      (film.genreNames && film.genreNames.some(genre => 
-        genre.toLowerCase().includes(searchText.toLowerCase())
-      ))
+    // Filter by title
+    const titleMatch = film.title.toLowerCase().includes(searchText.toLowerCase());
+    
+    // Filter by genres
+    const genreMatch = film.genreNames && film.genreNames.some(genre => 
+      genre.toLowerCase().includes(searchText.toLowerCase())
     );
+    
+    return titleMatch || genreMatch;
   });
 
   const columns = [
@@ -139,8 +217,8 @@ const FilmsManagementPage = () => {
       key: 'genreNames',
       render: (genreNames) => (
         <>
-          {genreNames && genreNames.map(genre => (
-            <Tag color="blue" key={genre}>
+          {genreNames && genreNames.map((genre, index) => (
+            <Tag color="blue" key={index}>
               {genre}
             </Tag>
           ))}
@@ -164,12 +242,10 @@ const FilmsManagementPage = () => {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => {
-        let color = status === 'Đang chiếu' ? 'green' : 
-                    status === 'Sắp chiếu' ? 'geekblue' : 'volcano';
+      render: (status, record) => {
         return (
-          <Tag color={color}>
-            {status || 'Không xác định'}
+          <Tag color={getStatusColor(status)}>
+            {record.statusLabel}
           </Tag>
         );
       },
@@ -177,7 +253,7 @@ const FilmsManagementPage = () => {
     {
       title: 'Thao tác',
       key: 'action',
-      width: 120,
+      width: 180, // Increased width to accommodate the new button
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="Chỉnh sửa">
@@ -185,12 +261,17 @@ const FilmsManagementPage = () => {
               <Button type="primary" icon={<EditOutlined />} size="small" />
             </Link>
           </Tooltip>
+          <Tooltip title="Quản lý thể loại">
+            <Link to={`/staff/films/${record.id}/genres`}>
+              <Button icon={<TagsOutlined />} size="small" style={{ backgroundColor: '#722ed1', color: 'white' }} />
+            </Link>
+          </Tooltip>
           <Tooltip title="Xóa">
             <Button 
               danger 
               icon={<DeleteOutlined />} 
               size="small" 
-              onClick={() => handleDeleteFilm(record.id)}
+              onClick={() => handleDeleteClick(record.id)}
             />
           </Tooltip>
         </Space>
@@ -201,7 +282,9 @@ const FilmsManagementPage = () => {
   return (
     <div className="films-management">
       <div className="page-header">
-        <Title level={3}>Quản lý phim</Title>
+        <Title level={3}>
+          Quản lý phim
+        </Title>
         <Space>
           <Input
             placeholder="Tìm kiếm phim"
@@ -227,6 +310,38 @@ const FilmsManagementPage = () => {
         onChange={handleTableChange}
         className="films-table"
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title="Xác nhận xóa phim"
+        open={deleteModalVisible}
+        onOk={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        okText="Xóa"
+        cancelText="Hủy"
+        okType="danger"
+      >
+        {filmToDelete && (
+          <div>
+            <div style={{ display: 'flex', marginBottom: '16px' }}>
+              <div style={{ marginRight: '16px' }}>
+                <img 
+                  src={filmToDelete.posterURL || 'https://via.placeholder.com/120x180?text=No+Image'} 
+                  alt={filmToDelete.title}
+                  style={{ width: 80, height: 120, objectFit: 'cover' }}
+                />
+              </div>
+              <div>
+                <p><strong>Tên phim:</strong> {filmToDelete.title}</p>
+                <p><strong>Thời lượng:</strong> {filmToDelete.duration} phút</p>
+                <p><strong>Trạng thái:</strong> <Tag color={getStatusColor(filmToDelete.status)}>{filmToDelete.statusLabel}</Tag></p>
+                <p><strong>Thể loại:</strong> {filmToDelete.genreNames && filmToDelete.genreNames.join(', ')}</p>
+              </div>
+            </div>
+            <p style={{ color: 'red' }}>Bạn có chắc chắn muốn xóa phim này? Hành động này không thể hoàn tác và sẽ ảnh hưởng đến tất cả lịch chiếu và đặt vé liên quan.</p>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

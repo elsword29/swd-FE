@@ -21,7 +21,6 @@ import {
 import { Link } from 'react-router-dom';
 import moment from 'moment';
 import { 
-  bookingService, 
   movieService, 
   projectionService 
 } from '../../services/api';
@@ -29,6 +28,31 @@ import '../style/StaffDashboard.css';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
+
+// Define custom services to access the specific endpoints
+const ticketService = {
+  getAll: () => {
+    return fetch('https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net/Ticket/GetTickets/getallticketlist/1/1000')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      });
+  }
+};
+
+const projectionDetailService = {
+  getById: (id) => {
+    return fetch(`https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net/api/Projection/${id}`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      });
+  }
+};
 
 // Define the component
 const StaffDashboard = () => {
@@ -45,145 +69,190 @@ const StaffDashboard = () => {
     moment().subtract(7, 'days').startOf('day'),
     moment().endOf('day')
   ]);
+  const [ticketData, setTicketData] = useState([]);
+  const [projectionsData, setProjectionsData] = useState([]);
+  const [filmsData, setFilmsData] = useState([]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [dateRange]);
+    fetchAllData();
+  }, []);
 
-  const fetchDashboardData = async () => {
+  useEffect(() => {
+    if (ticketData.length > 0 && filmsData.length > 0 && projectionsData.length > 0) {
+      calculateDashboardStats();
+    }
+  }, [ticketData, filmsData, projectionsData, dateRange]);
+
+  const fetchAllData = async () => {
     try {
       setLoading(true);
       
-      // Fetch all the data we need for the dashboard
-      const [bookingsResponse, filmsResponse, projectionsResponse] = await Promise.all([
-        bookingService.getAll(),
+      // Fetch all necessary data
+      const [ticketsResponse, filmsResponse, projectionsResponse] = await Promise.all([
+        ticketService.getAll(),
         movieService.getAll(),
         projectionService.getAll()
       ]);
       
+      console.log('Tickets data:', ticketsResponse);
       console.log('Films data:', filmsResponse.data);
       console.log('Projections data:', projectionsResponse.data);
+
+      // Store the data in state
+      const tickets = ticketsResponse.items || [];
+      setTicketData(tickets);
+      setFilmsData(filmsResponse.data || []);
+      setProjectionsData(projectionsResponse.data || []);
       
-      // Get all bookings
-      const allBookings = bookingsResponse.data || [];
-      
-      // Filter bookings by date range
-      const filteredBookings = allBookings.filter(booking => {
-        const bookingTime = booking.bookingTime || booking.purchaseTime;
-        if (!bookingTime) return false;
-        
-        const bookingDate = moment(bookingTime);
-        return bookingDate.isBetween(dateRange[0], dateRange[1], null, '[]');
+      // Data is loaded, now calculateDashboardStats will run through useEffect
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      message.error('Không thể tải dữ liệu dashboard');
+      setLoading(false);
+    }
+  };
+
+  const calculateDashboardStats = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Count total tickets within date range
+      const filteredTickets = ticketData.filter(ticket => {
+        const ticketDate = moment(ticket.purchaseTime);
+        return ticketDate.isBetween(dateRange[0], dateRange[1], null, '[]');
       });
       
-      // Calculate total revenue from bookings
-      const totalRevenue = filteredBookings.reduce((sum, booking) => {
-        // Check if seats is an array and has length
-        const seatCount = Array.isArray(booking.seats) ? booking.seats.length : 1;
-        // Get price from projection or directly from booking
-        const price = (booking.projection?.price || booking.price || 0);
-        return sum + (seatCount * price);
-      }, 0);
+      const totalBookings = filteredTickets.length;
+
+      // 2. Calculate total revenue
+      // We need to get projection details for each ticket to get the price
+      let totalRevenue = 0;
       
-      // Count active films - only count films that have been released but aren't too old
-      const films = filmsResponse.data || [];
-      const now = moment();
-      const sixMonthsAgo = moment().subtract(6, 'months'); // Consider films from the last 6 months as "active"
+      // Use a map to cache projection details we've already fetched
+      const projectionCache = new Map();
       
-      const activeFilms = films.filter(film => {
-        // Skip deleted films if isDeleted is available
-        if (film.isDeleted) return false;
-        
-        // Consider a film "active" if it has already been released (up to today)
-        // but isn't too old (released within the last 6 months)
-        const releaseDate = moment(film.releaseDate);
-        return releaseDate.isBefore(now) && releaseDate.isAfter(sixMonthsAgo);
-      }).length;
-      
-      // Count upcoming projections (future dates)
-      const projections = projectionsResponse.data || [];
-      const upcomingProjections = projections.filter(projection => {
-        // Skip deleted projections if isDeleted is available
-        if (projection.isDeleted) return false;
-        
-        // Check for startTime field
-        const startTime = projection.startTime;
-        if (!startTime) return false;
-        
-        return moment(startTime).isAfter(now);
-      }).length;
-      
-      // Get most popular films based on booking count
-      const filmBookingCounts = {};
-      allBookings.forEach(booking => {
-        // Check if projection exists and has filmId
-        if (booking.projection && booking.projection.filmId) {
-          const filmId = booking.projection.filmId;
-          filmBookingCounts[filmId] = (filmBookingCounts[filmId] || 0) + 1;
-        } 
-        // Check if projection exists and has film object
-        else if (booking.projection && booking.projection.film && booking.projection.film.id) {
-          const filmId = booking.projection.film.id;
-          filmBookingCounts[filmId] = (filmBookingCounts[filmId] || 0) + 1;
-        }
-        // Check if booking has direct filmId reference
-        else if (booking.filmId) {
-          const filmId = booking.filmId;
-          filmBookingCounts[filmId] = (filmBookingCounts[filmId] || 0) + 1;
-        }
-        // Check if booking has direct projectionId and we can match it
-        else if (booking.projectionId) {
-          const projection = projections.find(p => p.id === booking.projectionId);
-          if (projection && projection.filmId) {
-            const filmId = projection.filmId;
-            filmBookingCounts[filmId] = (filmBookingCounts[filmId] || 0) + 1;
+      // For each filtered ticket, get its projection and add the price to the total
+      for (const ticket of filteredTickets) {
+        if (ticket.projectionId) {
+          try {
+            let projectionDetail;
+            
+            // Check if we've already fetched this projection
+            if (projectionCache.has(ticket.projectionId)) {
+              projectionDetail = projectionCache.get(ticket.projectionId);
+            } else {
+              // Fetch and cache the projection details
+              projectionDetail = await projectionDetailService.getById(ticket.projectionId);
+              projectionCache.set(ticket.projectionId, projectionDetail);
+            }
+            
+            // Add the price to the total revenue
+            if (projectionDetail && projectionDetail.price) {
+              totalRevenue += projectionDetail.price;
+            }
+          } catch (error) {
+            console.error(`Error fetching projection details for ID ${ticket.projectionId}:`, error);
           }
         }
-      });
+      }
+
+      // 3. Count films with status 1 (Đang chiếu)
+      const activeFilms = filmsData.filter(film => film.status === 1).length;
+
+      // 4. Count projections with startTime after 2 days from now
+      const twoDaysFromNow = moment().add(2, 'days');
+      const upcomingProjections = projectionsData.filter(projection => {
+        return moment(projection.startTime).isAfter(twoDaysFromNow);
+      }).length;
+
+      // 5. Calculate popular films
+      const filmBookingCounts = {};
+      const filmRevenueMap = {};
       
+      // Count bookings for each film
+      for (const ticket of ticketData) {
+        // Find the projection for this ticket
+        const projection = projectionsData.find(p => p.id === ticket.projectionId);
+        
+        if (projection && projection.filmId) {
+          // Count ticket for this film
+          const filmId = projection.filmId;
+          filmBookingCounts[filmId] = (filmBookingCounts[filmId] || 0) + 1;
+          
+          // Add to revenue for this film
+          if (!filmRevenueMap[filmId]) {
+            filmRevenueMap[filmId] = 0;
+          }
+          
+          // Get projection details for price if not in cache
+          if (!projectionCache.has(ticket.projectionId)) {
+            try {
+              const projectionDetail = await projectionDetailService.getById(ticket.projectionId);
+              projectionCache.set(ticket.projectionId, projectionDetail);
+              
+              if (projectionDetail && projectionDetail.price) {
+                filmRevenueMap[filmId] += projectionDetail.price;
+              }
+            } catch (error) {
+              console.error(`Error fetching projection details for ID ${ticket.projectionId}:`, error);
+            }
+          } else {
+            // Use cached projection details
+            const projectionDetail = projectionCache.get(ticket.projectionId);
+            if (projectionDetail && projectionDetail.price) {
+              filmRevenueMap[filmId] += projectionDetail.price;
+            }
+          }
+        }
+      }
+      
+      // Create popular films data
       const popularFilmsData = Object.entries(filmBookingCounts)
         .map(([filmId, count]) => {
-          // Find the film in our films array, handling both string and number IDs
-          const film = films.find(f => {
-            const fId = f.id?.toString();
-            const compareId = filmId?.toString();
-            return fId === compareId;
-          });
-          
+          // Find film details
+          const film = filmsData.find(f => f.id === filmId);
           if (!film) return null;
           
-          return { 
+          return {
             film,
             bookingCount: count,
-            revenue: allBookings
-              .filter(b => {
-                // Match booking to film using different possible paths
-                const bookingFilmId = (b.projection?.film?.id || b.filmId)?.toString();
-                return bookingFilmId === filmId.toString();
-              })
-              .reduce((sum, b) => {
-                const seatCount = Array.isArray(b.seats) ? b.seats.length : 1;
-                const price = (b.projection?.price || b.price || 0);
-                return sum + (seatCount * price);
-              }, 0)
+            revenue: filmRevenueMap[filmId] || 0
           };
         })
-        .filter(item => item !== null) // Filter out null items 
+        .filter(item => item !== null)
         .sort((a, b) => b.bookingCount - a.bookingCount)
         .slice(0, 5);
       
-      // Get recent bookings
-      const recentBookingsData = [...allBookings]
+      // 6. Get recent bookings
+      const recentBookingsData = [...ticketData]
         .sort((a, b) => {
-          const dateA = new Date(a.bookingTime || a.purchaseTime || 0);
-          const dateB = new Date(b.bookingTime || b.purchaseTime || 0);
+          const dateA = new Date(a.purchaseTime || 0);
+          const dateB = new Date(b.purchaseTime || 0);
           return dateB - dateA;
         })
-        .slice(0, 5);
-      
-      // Update state with all the data
+        .slice(0, 5)
+        .map(ticket => {
+          // Find the projection for this ticket
+          const projection = projectionsData.find(p => p.id === ticket.projectionId);
+          
+          // Find the film for this projection
+          const film = projection ? filmsData.find(f => f.id === projection.filmId) : null;
+          
+          return {
+            ...ticket,
+            bookingCode: ticket.appTransId || ticket.id,
+            customerName: ticket.userId || 'Khách hàng',
+            projection: {
+              ...projection,
+              film: film || { title: 'N/A' }
+            }
+          };
+        });
+
+      // Update state with calculated data
       setStats({
-        totalBookings: filteredBookings.length,
+        totalBookings,
         totalRevenue,
         activeFilms,
         upcomingProjections
@@ -191,10 +260,11 @@ const StaffDashboard = () => {
       
       setPopularFilms(popularFilmsData);
       setRecentBookings(recentBookingsData);
+      
       setLoading(false);
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      message.error('Không thể tải dữ liệu dashboard');
+      console.error("Error calculating dashboard stats:", error);
+      message.error('Lỗi khi tính toán thống kê');
       setLoading(false);
     }
   };
@@ -263,9 +333,9 @@ const StaffDashboard = () => {
     },
     {
       title: 'Thời gian đặt',
-      dataIndex: 'bookingTime',
-      key: 'bookingTime',
-      render: (text, record) => formatDateTime(text || record.purchaseTime),
+      dataIndex: 'purchaseTime',
+      key: 'purchaseTime',
+      render: (text) => formatDateTime(text),
     },
   ];
 

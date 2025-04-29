@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { FaUser, FaEnvelope, FaPhone } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/common/Header';
 import { useAuth } from '../context/AuthContext';
+import { authService } from '../services/api';
 
 const PageContainer = styled.div`
   background-color: #0f0f1e;
@@ -25,7 +26,7 @@ const PageTitle = styled.h1`
 const Section = styled.div`
   background: #16213e;
   border-radius: 8px;
-  padding: 1.5rem;z
+  padding: 1.5rem;
   margin-bottom: 2rem;
 `;
 
@@ -90,12 +91,41 @@ const Button = styled.button`
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, setUser, userRole, setUserRole, logout, loading } = useAuth();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  // Tải lại thông tin người dùng khi truy cập trang
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await authService.getCurrentUser();
+        console.log('User data:', response.data); // Kiểm tra dữ liệu
+        setUser(response.data);
+        const role = localStorage.getItem('userRole');
+        setUserRole(role);
+      } catch (err) {
+        console.error('Failed to fetch user profile:', err);
+        logout();
+        navigate('/login');
+      }
+    };
+  
+    if (!currentUser) {
+      fetchUser();
+    }
+  }, [currentUser, setUser, setUserRole, logout, navigate]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/');
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
   };
+
+  if (loading) {
+    return <PageContainer><Header /><div style={{ padding: '2rem' }}>Đang tải...</div></PageContainer>;
+  }
 
   if (!currentUser) {
     return <PageContainer><Header /><div style={{ padding: '2rem' }}>Vui lòng đăng nhập để xem thông tin tài khoản.</div></PageContainer>;
@@ -118,19 +148,13 @@ const ProfilePage = () => {
             <InfoRow>
               <InfoIcon><FaUser /></InfoIcon>
               <InfoLabel>Họ tên:</InfoLabel>
-              <InfoValue>{currentUser.Fullname}</InfoValue>
+              <InfoValue>{currentUser.fullName || 'Không có thông tin'}</InfoValue>
             </InfoRow>
             
             <InfoRow>
               <InfoIcon><FaEnvelope /></InfoIcon>
               <InfoLabel>Email:</InfoLabel>
-              <InfoValue>{currentUser.email}</InfoValue>
-            </InfoRow>
-            
-            <InfoRow>
-              <InfoIcon><FaPhone /></InfoIcon>
-              <InfoLabel>Điện thoại:</InfoLabel>
-              <InfoValue>{currentUser.PhoneNumber || 'Không có thông tin'}</InfoValue>
+              <InfoValue>{currentUser.email || 'Không có thông tin'}</InfoValue>
             </InfoRow>
           </ProfileInfo>
           
