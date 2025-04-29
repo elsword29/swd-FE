@@ -123,7 +123,7 @@ const Footer = () => {
     <FooterContainer>
       <FooterContent>
         <FooterColumn>
-          <FooterLogo to="/">Cinema<span style={{ color: 'white' }}>Booking</span></FooterLogo>
+          <FooterLogo to="/">Galaxy<span style={{ color: 'white' }}>Booking</span></FooterLogo>
           <FooterDescription>
             Trang web đặt vé xem phim hàng đầu Việt Nam, cung cấp trải nghiệm đặt vé dễ dàng và thuận tiện với nhiều ưu đãi hấp dẫn.
           </FooterDescription>
@@ -175,13 +175,13 @@ const Footer = () => {
           </ContactItem>
           <ContactItem>
             <ContactIcon><FaEnvelope /></ContactIcon>
-            <div>support@cinemabooking.com</div>
+            <div>support@Galaxymabooking.com</div>
           </ContactItem>
         </FooterColumn>
       </FooterContent>
       
       <Copyright>
-        &copy; {new Date().getFullYear()} Cinema Booking. Tất cả quyền được bảo lưu.
+        &copy; {new Date().getFullYear()} Galaxy Booking. Tất cả quyền được bảo lưu.
       </Copyright>
     </FooterContainer>
   );
