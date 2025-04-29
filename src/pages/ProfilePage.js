@@ -98,6 +98,7 @@ const ProfilePage = () => {
     const fetchUser = async () => {
       try {
         const response = await authService.getCurrentUser();
+        console.log('User data:', response.data); // Kiểm tra dữ liệu
         setUser(response.data);
         const role = localStorage.getItem('userRole');
         setUserRole(role);
@@ -107,7 +108,7 @@ const ProfilePage = () => {
         navigate('/login');
       }
     };
-
+  
     if (!currentUser) {
       fetchUser();
     }
@@ -154,12 +155,6 @@ const ProfilePage = () => {
               <InfoIcon><FaEnvelope /></InfoIcon>
               <InfoLabel>Email:</InfoLabel>
               <InfoValue>{currentUser.email || 'Không có thông tin'}</InfoValue>
-            </InfoRow>
-            
-            <InfoRow>
-              <InfoIcon><FaPhone /></InfoIcon>
-              <InfoLabel>Điện thoại:</InfoLabel>
-              <InfoValue>{currentUser.phoneNumber || 'Không có thông tin'}</InfoValue>
             </InfoRow>
           </ProfileInfo>
           
