@@ -95,7 +95,7 @@ const BookingHistoryPage = () => {
       try {
         setLoading(true);
         const response = await axios.get(
-          `${backendUrl}/api/Ticket/getallmyticket/1/10`,
+          `${backendUrl}/Ticket/GetTicket/getallmyticket/1/10`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -134,8 +134,7 @@ const BookingHistoryPage = () => {
             {bookings.map(booking => {
               const firstTicket = booking.tickets[0] || {};
               const isPaymentSuccess = booking.tickets.every(t => t.isPaymentSuccess);
-              const totalPrice = booking.tickets.reduce((sum, ticket) => sum + ticket.price, 0);
-              const seats = booking.tickets.map(ticket => ticket.seatNumber);
+              const seats = booking.tickets.map(ticket => ticket.seatName);
 
               return (
                 <BookingCard key={booking.appTransId}>
@@ -165,10 +164,6 @@ const BookingHistoryPage = () => {
                     <DetailRow>
                       <span>Ghế:</span>
                       <span>{seats.join(', ') || 'N/A'}</span>
-                    </DetailRow>
-                    <DetailRow>
-                      <span>Tổng tiền:</span>
-                      <span>{formatPrice(totalPrice)}</span>
                     </DetailRow>
                   </BookingDetails>
                 </BookingCard>

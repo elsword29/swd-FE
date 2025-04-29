@@ -86,6 +86,9 @@ const Header = () => {
         
         {currentUser ? (
           <UserMenu>
+            <NavLink to="/booking/tickethistory">
+              Lịch Sử Vé
+            </NavLink>
             <NavLink to="/profile">
               <FaUser /> <UserName>{currentUser.name}</UserName>
             </NavLink>

@@ -325,7 +325,6 @@ const SeatSelectionPage = () => {
     const uniqueSeats = [];
     const seatSet = new Set();
   
-    // Lọc trùng ghế
     for (const seat of seats) {
       const key = `${seat.Row || seat.row}-${seat.SeatNumber || seat.seatNumber}`;
       if (!seatSet.has(key)) {
@@ -334,7 +333,6 @@ const SeatSelectionPage = () => {
       }
     }
   
-    // Tạo map ghế theo từng hàng
     const map = uniqueRows.map(row => {
       const seatsInRow = uniqueSeats
         .filter(seat => (seat.Row || seat.row) === row)

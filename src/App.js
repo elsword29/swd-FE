@@ -15,18 +15,19 @@ import ProfilePage from './pages/ProfilePage';
 import BookingPage from './pages/BookingPage';
 import PaymentCallback from './pages/PaymentCallback';
 import StaffDashboard from './pages/StaffDashboard';
+import BookingHistoryPage from './pages/BookingHistoryPage';
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
-  
+
   if (loading) {
     return <div>Loading...</div>;
   }
-  
+
   if (!currentUser) {
     return <Navigate to="/login" />;
   }
-  
+
   return children;
 };
 
@@ -44,30 +45,38 @@ function App() {
             <Route path="/seat-selection" element={<SeatSelectionPage />} />
             <Route path="/booking/payment-callback" element={<PaymentCallback />} />
             <Route path="/staff/dashboard" element={<StaffDashboard />} />
-            <Route 
-              path="/booking/seats" 
+            <Route
+              path="/booking/seats"
               element={
                 <ProtectedRoute>
                   <SeatSelectionPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/booking/checkout" 
+            <Route
+              path="/booking/checkout"
               element={
                 <ProtectedRoute>
                   <CheckoutPage />
                 </ProtectedRoute>
-              } 
+              }
             />
             <Route path="/login" element={<LoginPage />} />
-            <Route 
-              path="/profile" 
+            <Route
+              path="/profile"
               element={
                 <ProtectedRoute>
                   <ProfilePage />
                 </ProtectedRoute>
-              } 
+              }
+            />
+            <Route
+              path="/booking/tickethistory"
+              element={
+                <ProtectedRoute>
+                  <BookingHistoryPage />
+                </ProtectedRoute>
+              }
             />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
