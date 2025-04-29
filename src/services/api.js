@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const API_URL = 'https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net';
+const BASE_URL = 'https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -8,7 +9,9 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
+const axiosInstance = axios.create({
+  baseURL: BASE_URL
+});
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -138,7 +141,7 @@ export const authService = {
       if (!userId) {
         throw new Error('Không có người dùng đăng nhập');
       }
-      const response = await api.get('/Authentication/profile');
+      const response = await api.get('/api/Authentication/profile');
       console.log('Get current user response:', response.data);
       return response;
     } catch (error) {
@@ -207,5 +210,88 @@ export const bookingService = {
   update: (id, bookingData) => api.put(`/api/bookings/${id}`, bookingData),
   delete: (id) => api.delete(`/api/bookings/${id}`),
 };
+
+
+
+export const filmGenreService = {
+  getAll: () => api.get('/FilmGenre'),
+  getById: (id) => api.get(`/api/FilmGenre/${id}`),
+  create: (filmGenreData) => api.post('/api/FilmGenre', filmGenreData),
+  update: (id, filmGenreData) => api.put(`/api/FilmGenre/${id}`, filmGenreData),
+  delete: (id) => api.delete(`/api/FilmGenre/${id}`),
+  getPaged: (params) => api.get('/api/FilmGenre/paged', { params }),
+  getByFilm: (filmId) => api.get(`/api/FilmGenre/by-film/${filmId}`),
+  getByGenre: (genreId) => api.get(`/api/FilmGenre/by-genre/${genreId}`),
+};
+
+export const genreService = {
+  getAll: () => api.get('/api/Genre'),
+  getById: (id) => api.get(`/api/Genre/${id}`),
+  create: (genreData) => api.post('/api/Genre', genreData),
+  update: (id, genreData) => api.put(`/api/Genre/${id}`, genreData),
+  delete: (id) => api.delete(`/api/Genre/${id}`),
+  getPaged: (params) => api.get('/api/Genre/paged', { params }),
+  find: (id) => api.get(`/api/Genre/find/${id}`),
+};
+
+export const projectionService = {
+  getAll: () => api.get('/api/Projection'),
+  getById: (id) => api.get(`/api/Projection/${id}`),
+  create: (projectionData) => api.post('/api/Projection', projectionData),
+  update: (id, projectionData) => api.put(`/api/Projection/${id}`, projectionData),
+  delete: (id) => api.delete(`/api/Projection/${id}`),
+  getPaged: (params) => api.get('/api/Projection/paged', { params }),
+  getByFilm: (filmId) => api.get(`/api/Projection/by-film/${filmId}`),
+  getByRoom: (roomId) => api.get(`/api/Projection/by-room/${roomId}`),
+};
+
+export const roomService = {
+  getAll: () => api.get('/Room'),
+  getById: (id) => api.get(`/Room/${id}`),
+  create: (roomData) => api.post('/Room', roomData),
+  update: (id, roomData) => api.put(`/Room/${id}`, roomData),
+  delete: (id) => api.delete(`/Room/${id}`),
+  getByNumber: (roomNumber) => api.get(`/Room/by-number/${roomNumber}`),
+  getByType: (roomType) => api.get(`/Room/by-type/${roomType}`),
+  getBySpecificId: (id) => api.get(`/Room/by-id/${id}`),
+};
+
+
+export const ticketService = {
+  createTicket: (ticketData) => axios.post(`${BASE_URL}/Ticket/CreateTicket`, ticketData),
+  getAllMyTickets: (pageNumber, pageSize) => axios.get(`${BASE_URL}/Ticket/GetTicket/getallmyticket/${pageNumber}/${pageSize}`),
+  getTicketsByUserId: (userId, pageNumber, pageSize) => axios.get(`${BASE_URL}/Ticket/GetTicketByUserId/getallticketbyuserid/${userId}/${pageNumber}/${pageSize}`),
+  getAllTickets: (pageNumber, pageSize) => axios.get(`${BASE_URL}/Ticket/GetTickets/getallticketlist/${pageNumber}/${pageSize}`),
+  getTicketById: (ticketId) => axios.get(`${BASE_URL}/Ticket/GetTicketById/${ticketId}`),
+  deleteTicket: (ticketId) => axiosInstance.delete(`/Ticket/DeleteTicketById`, { data: { id: ticketId } }),
+  deleteBooking: async (appTransId, ticketIds) => {
+    // If we have individual ticket IDs, delete each one
+    if (Array.isArray(ticketIds) && ticketIds.length > 0) {
+      // Delete tickets one by one
+      const deletePromises = ticketIds.map(ticketId => 
+        axiosInstance.delete(`/Ticket/DeleteTicketById`, { 
+          data: { id: ticketId } 
+        })
+      );
+      
+      return Promise.all(deletePromises);
+    } else {
+      // If no specific ticket IDs provided, try using the booking transaction ID
+      // This is a fallback and might not work depending on API design
+      return axiosInstance.delete(`/Ticket/DeleteBooking`, { 
+        data: { appTransId: appTransId } 
+      });
+    }
+  }
+};
+
+export const zalopayService = {
+  checkOrderStatus: (params) => api.get('/Zalopay/CheckOrderStatus', { params }),
+};
+
+export const testService = {
+  checkConnection: () => api.get('/Test/connection'),
+};
+
 
 export default api;

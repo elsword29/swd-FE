@@ -43,6 +43,7 @@ const ProjectionForm = ({ mode = 'add' }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [calculatedEndTime, setCalculatedEndTime] = useState(null);
+  const [originalProjection, setOriginalProjection] = useState(null);
   
   useEffect(() => {
     fetchFilms();
@@ -68,7 +69,8 @@ const ProjectionForm = ({ mode = 'add' }) => {
   const fetchFilms = async () => {
     try {
       const response = await movieService.getAll();
-      setFilms(response.data.filter(film => film.status !== 'Ngừng chiếu'));
+      // Filter out films that are not showing if needed
+      setFilms(response.data.filter(film => film.status !== 3)); // Assuming 3 is "Ngừng chiếu"
     } catch (error) {
       console.error("Error fetching films:", error);
       message.error('Không thể tải danh sách phim');
@@ -91,8 +93,22 @@ const ProjectionForm = ({ mode = 'add' }) => {
       const response = await projectionService.getById(projectionId);
       const projection = response.data;
       
+      console.log("Fetched projection data:", projection);
+      setOriginalProjection(projection);
+      
+      // Find the film and room objects
+      const filmObj = films.find(f => f.id === projection.filmId) || projection.film;
+      const roomObj = rooms.find(r => r.id === projection.roomId) || projection.room;
+      
+      setSelectedFilm(filmObj);
+      setSelectedRoom(roomObj);
+      
       // Format the data for the form
       const startDateTime = moment(projection.startTime);
+      
+      setSelectedDate(startDateTime);
+      setSelectedTime(startDateTime);
+      
       const formData = {
         filmId: projection.filmId,
         roomId: projection.roomId,
@@ -103,11 +119,8 @@ const ProjectionForm = ({ mode = 'add' }) => {
       
       form.setFieldsValue(formData);
       
-      // Set selected values for calculations
-      setSelectedFilm(projection.film);
-      setSelectedRoom(projection.room);
-      setSelectedDate(startDateTime);
-      setSelectedTime(startDateTime);
+      // Calculate end time based on film duration
+      calculateEndTime();
       
       setLoading(false);
     } catch (error) {
@@ -134,8 +147,16 @@ const ProjectionForm = ({ mode = 'add' }) => {
   
   const handleFilmChange = async (filmId) => {
     try {
-      const response = await movieService.getById(filmId);
-      setSelectedFilm(response.data);
+      // Find film in existing array first
+      let film = films.find(f => f.id === filmId);
+      
+      if (!film) {
+        // If not found, fetch from API
+        const response = await movieService.getById(filmId);
+        film = response.data;
+      }
+      
+      setSelectedFilm(film);
     } catch (error) {
       console.error("Error fetching film details:", error);
     }
@@ -143,8 +164,16 @@ const ProjectionForm = ({ mode = 'add' }) => {
   
   const handleRoomChange = async (roomId) => {
     try {
-      const response = await roomService.getById(roomId);
-      setSelectedRoom(response.data);
+      // Find room in existing array first
+      let room = rooms.find(r => r.id === roomId);
+      
+      if (!room) {
+        // If not found, fetch from API
+        const response = await roomService.getById(roomId);
+        room = response.data;
+      }
+      
+      setSelectedRoom(room);
     } catch (error) {
       console.error("Error fetching room details:", error);
     }
@@ -187,19 +216,23 @@ const ProjectionForm = ({ mode = 'add' }) => {
       
       // Prepare data for submission
       const projectionData = {
-        filmId: values.filmId,
-        roomId: values.roomId,
+        filmId: values.filmId.toString(),
+        roomId: values.roomId.toString(),
         startTime: startDateTime,
         endTime: endDateTime,
         price: values.price,
       };
+      
+      console.log("Submitting projection data:", projectionData);
       
       let response;
       if (mode === 'add') {
         response = await projectionService.create(projectionData);
         message.success('Thêm suất chiếu mới thành công!');
       } else {
+        console.log()
         response = await projectionService.update(id, projectionData);
+        console.log(response.data)
         message.success('Cập nhật suất chiếu thành công!');
       }
       
@@ -283,7 +316,7 @@ const ProjectionForm = ({ mode = 'add' }) => {
               >
                 {rooms.map(room => (
                   <Option key={room.id} value={room.id}>
-                    {room.name} - {room.capacity} ghế
+                    {room.roomNumber || room.name} - {room.capacity} ghế
                   </Option>
                 ))}
               </Select>
@@ -301,8 +334,15 @@ const ProjectionForm = ({ mode = 'add' }) => {
                 format="DD/MM/YYYY"
                 onChange={handleDateChange}
                 disabledDate={(current) => {
-                  // Disable dates before today
-                  return current && current < moment().startOf('day');
+                  // Disable dates before today in add mode
+                  // In edit mode, allow the original date
+                  if (mode === 'add') {
+                    return current && current < moment().startOf('day');
+                  } else if (originalProjection) {
+                    const originalDate = moment(originalProjection.startTime).startOf('day');
+                    return current && current < moment().startOf('day') && !current.isSame(originalDate, 'day');
+                  }
+                  return false;
                 }}
               />
             </Form.Item>
@@ -357,9 +397,9 @@ const ProjectionForm = ({ mode = 'add' }) => {
               description={
                 <div>
                   <p><strong>Phim:</strong> {selectedFilm.title} ({selectedFilm.duration} phút)</p>
-                  <p><strong>Phòng chiếu:</strong> {selectedRoom.name} - {selectedRoom.capacity} ghế</p>
-                  {calculatedEndTime && (
-                    <p><strong>Thời gian chiếu:</strong> {selectedTime?.format('HH:mm')} - {calculatedEndTime.format('HH:mm')}</p>
+                  <p><strong>Phòng chiếu:</strong> {selectedRoom.roomNumber || selectedRoom.name} - {selectedRoom.capacity} ghế</p>
+                  {calculatedEndTime && selectedTime && (
+                    <p><strong>Thời gian chiếu:</strong> {selectedTime.format('HH:mm')} - {calculatedEndTime.format('HH:mm')}</p>
                   )}
                 </div>
               }

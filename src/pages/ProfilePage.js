@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { FaUser, FaEnvelope, FaPhone } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaPhone, FaHistory } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/common/Header';
 import { useAuth } from '../context/AuthContext';
+import { authService } from '../services/api';
 
 const PageContainer = styled.div`
   background-color: #0f0f1e;
@@ -25,7 +26,7 @@ const PageTitle = styled.h1`
 const Section = styled.div`
   background: #16213e;
   border-radius: 8px;
-  padding: 1.5rem;z
+  padding: 1.5rem;
   margin-bottom: 2rem;
 `;
 
@@ -88,17 +89,102 @@ const Button = styled.button`
   }
 `;
 
+const LoadingSpinner = styled.div`
+  display: inline-block;
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(255,255,255,.3);
+  border-radius: 50%;
+  border-top-color: #e94560;
+  animation: spin 1s ease-in-out infinite;
+  margin: 0 auto;
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
+const LoadingContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+`;
+
+const ErrorMessage = styled.div`
+  color: #e94560;
+  background: rgba(233, 69, 96, 0.1);
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+`;
+
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, loading, setError } = useAuth();
+  const [localLoading, setLocalLoading] = useState(false);
+  const [bookings, setBookings] = useState([]);
+  const [refreshNeeded, setRefreshNeeded] = useState(false);
+  
+  // Function to refresh user profile
+  const refreshProfile = async () => {
+    try {
+      setLocalLoading(true);
+      // Check if we have an API call to refresh profile specifically
+      await authService.getCurrentUser();
+      // Load booking history if needed
+      // const response = await bookingService.getUserBookings();
+      // setBookings(response.data);
+    } catch (err) {
+      setError('Không thể tải thông tin người dùng. Vui lòng đăng nhập lại.');
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser && refreshNeeded) {
+      refreshProfile();
+      setRefreshNeeded(false);
+    }
+  }, [currentUser, refreshNeeded]);
+  
+  // Set refresh needed on mount
+  useEffect(() => {
+    setRefreshNeeded(true);
+  }, []);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
+  if (loading || localLoading) {
+    return (
+      <PageContainer>
+        <Header />
+        <ContentContainer>
+          <LoadingContainer>
+            <LoadingSpinner />
+          </LoadingContainer>
+        </ContentContainer>
+      </PageContainer>
+    );
+  }
+
   if (!currentUser) {
-    return <PageContainer><Header /><div style={{ padding: '2rem' }}>Vui lòng đăng nhập để xem thông tin tài khoản.</div></PageContainer>;
+    return (
+      <PageContainer>
+        <Header />
+        <ContentContainer>
+          <Section>
+            <SectionTitle>Thông báo</SectionTitle>
+            <p>Vui lòng đăng nhập để xem thông tin tài khoản.</p>
+            <Button onClick={() => navigate('/login')}>Đăng nhập</Button>
+          </Section>
+        </ContentContainer>
+      </PageContainer>
+    );
   }
 
   return (
@@ -118,7 +204,7 @@ const ProfilePage = () => {
             <InfoRow>
               <InfoIcon><FaUser /></InfoIcon>
               <InfoLabel>Họ tên:</InfoLabel>
-              <InfoValue>{currentUser.Fullname}</InfoValue>
+              <InfoValue>{currentUser.fullName}</InfoValue>
             </InfoRow>
             
             <InfoRow>
@@ -130,12 +216,36 @@ const ProfilePage = () => {
             <InfoRow>
               <InfoIcon><FaPhone /></InfoIcon>
               <InfoLabel>Điện thoại:</InfoLabel>
-              <InfoValue>{currentUser.PhoneNumber || 'Không có thông tin'}</InfoValue>
+              <InfoValue>{currentUser.phoneNumber || 'Không có thông tin'}</InfoValue>
             </InfoRow>
           </ProfileInfo>
           
-          <Button secondary onClick={handleLogout}>
+          <Button onClick={() => setRefreshNeeded(true)}>
+            Làm mới
+          </Button>
+          
+          <Button secondary onClick={handleLogout} style={{ marginLeft: '10px' }}>
             Đăng xuất
+          </Button>
+        </Section>
+        
+        <Section>
+          <SectionTitle>
+            <SectionIcon><FaHistory /></SectionIcon>
+            Lịch sử đặt vé
+          </SectionTitle>
+          
+          {bookings.length > 0 ? (
+            // Render your bookings list here
+            <div>
+              {/* Map through bookings */}
+            </div>
+          ) : (
+            <p>Chưa có lịch sử đặt vé.</p>
+          )}
+          
+          <Button onClick={() => navigate('/movies')}>
+            Đặt vé ngay
           </Button>
         </Section>
       </ContentContainer>
