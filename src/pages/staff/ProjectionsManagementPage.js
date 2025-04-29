@@ -49,7 +49,12 @@ const ProjectionsManagementPage = () => {
     fetchProjections();
     fetchFilms();
     fetchRooms();
-  }, [pagination.current, pagination.pageSize, filterFilm, filterRoom, filterDateRange]);
+  }, [pagination.current, pagination.pageSize]);
+
+  useEffect(() => {
+    // Apply filters when they change
+    filterProjections();
+  }, [filterFilm, filterRoom, filterDateRange, searchText]);
 
   const fetchProjections = async () => {
     try {
@@ -88,6 +93,11 @@ const ProjectionsManagementPage = () => {
     }
   };
 
+  const filterProjections = () => {
+    // This will trigger the filter without refetching data from API
+    setPagination({...pagination});
+  };
+
   const handleTableChange = (pagination) => {
     setPagination(pagination);
   };
@@ -108,44 +118,67 @@ const ProjectionsManagementPage = () => {
     setFilterDateRange(dates);
   };
 
-  const handleDeleteProjection = (projectionId) => {
-    confirm({
-      title: 'Bạn có chắc chắn muốn xóa suất chiếu này?',
-      icon: <ExclamationCircleOutlined />,
-      content: 'Việc xóa có thể ảnh hưởng đến các đặt vé đã có.',
-      okText: 'Xóa',
-      okType: 'danger',
-      cancelText: 'Hủy',
-      async onOk() {
-        try {
-          await projectionService.delete(projectionId);
-          message.success('Xóa suất chiếu thành công');
-          fetchProjections();
-        } catch (error) {
-          console.error("Error deleting projection:", error);
-          message.error('Xóa suất chiếu thất bại');
-        }
-      },
-    });
-  };
+// First, add a state for the modal at the top of your component
+const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+const [projectionToDelete, setProjectionToDelete] = useState(null);
 
+// Replace your handleDeleteProjection function with this:
+const handleDeleteClick = (projectionId) => {
+  const projection = projections.find(p => p.id === projectionId);
+  if (!projection) {
+    message.error('Không tìm thấy thông tin suất chiếu');
+    return;
+  }
+  setProjectionToDelete(projection);
+  setDeleteModalVisible(true);
+};
+
+const handleDeleteConfirm = async () => {
+  if (!projectionToDelete) return;
+  
+  try {
+    setLoading(true);
+    console.log('Deleting projection with ID:', projectionToDelete.id);
+    
+    // Call API to delete the projection
+    await projectionService.delete(projectionToDelete.id);
+    
+    message.success('Xóa suất chiếu thành công');
+    
+    // Close modal and clear selection
+    setDeleteModalVisible(false);
+    setProjectionToDelete(null);
+    
+    // Refresh the projections data
+    fetchProjections();
+  } catch (error) {
+    console.error("Error deleting projection:", error);
+    message.error('Xóa suất chiếu thất bại');
+    setLoading(false);
+  }
+};
+
+const handleDeleteCancel = () => {
+  setDeleteModalVisible(false);
+  setProjectionToDelete(null);
+};
   // Apply filters to projections
   const filteredProjections = projections.filter(projection => {
     // Search text filter
     const searchFilter = 
       searchText === '' || 
       (projection.film && projection.film.title.toLowerCase().includes(searchText.toLowerCase())) ||
-      (projection.room && projection.room.name.toLowerCase().includes(searchText.toLowerCase()));
+      (projection.room && projection.room.roomNumber && projection.room.roomNumber.toLowerCase().includes(searchText.toLowerCase()));
     
-    // Film filter
+    // Film filter - match by title
     const filmFilter = 
       !filterFilm || 
-      (projection.film && projection.film.id === filterFilm);
+      (projection.film && projection.film.title === filterFilm);
     
-    // Room filter
+    // Room filter - match by room.roomNumber
     const roomFilter = 
       !filterRoom || 
-      (projection.room && projection.room.id === filterRoom);
+      (projection.room && projection.room.roomNumber === filterRoom);
     
     // Date range filter
     let dateFilter = true;
@@ -177,12 +210,16 @@ const ProjectionsManagementPage = () => {
     },
     {
       title: 'Phòng chiếu',
-      dataIndex: ['room', 'name'],
-      key: 'room',
+      dataIndex: ['room', 'roomNumber'],
+      key: 'roomNumber',
       render: (text, record) => (
-        record.room ? record.room.name : 'N/A'
+        record.room && record.room.roomNumber ? record.room.roomNumber : 'N/A'
       ),
-      sorter: (a, b) => (a.room && b.room) ? a.room.name.localeCompare(b.room.name) : 0,
+      sorter: (a, b) => {
+        const roomA = a.room && a.room.roomNumber ? a.room.roomNumber : '';
+        const roomB = b.room && b.room.roomNumber ? b.room.roomNumber : '';
+        return roomA.localeCompare(roomB);
+      },
     },
     {
       title: 'Thời gian bắt đầu',
@@ -249,13 +286,27 @@ const ProjectionsManagementPage = () => {
               danger 
               icon={<DeleteOutlined />} 
               size="small" 
-              onClick={() => handleDeleteProjection(record.id)}
+              onClick={() => handleDeleteClick(record.id)}
             />
           </Tooltip>
         </Space>
       ),
     },
   ];
+
+  // Get film titles for dropdown
+  const filmTitles = Array.from(new Set(
+    projections
+      .filter(p => p.film && p.film.title)
+      .map(p => p.film.title)
+  )).sort();
+
+  // Get room numbers for dropdown
+  const roomNumbers = Array.from(new Set(
+    projections
+      .filter(p => p.room && p.room.roomNumber)
+      .map(p => p.room.roomNumber)
+  )).sort();
 
   return (
     <div className="projections-management">
@@ -288,8 +339,8 @@ const ProjectionsManagementPage = () => {
             showSearch
             optionFilterProp="children"
           >
-            {films.map(film => (
-              <Option key={film.id} value={film.id}>{film.title}</Option>
+            {filmTitles.map(title => (
+              <Option key={title} value={title}>{title}</Option>
             ))}
           </Select>
           
@@ -299,8 +350,8 @@ const ProjectionsManagementPage = () => {
             onChange={handleFilterRoom}
             allowClear
           >
-            {rooms.map(room => (
-              <Option key={room.id} value={room.id}>{room.name}</Option>
+            {roomNumbers.map(roomNumber => (
+              <Option key={roomNumber} value={roomNumber}>{roomNumber}</Option>
             ))}
           </Select>
           
@@ -321,6 +372,25 @@ const ProjectionsManagementPage = () => {
         onChange={handleTableChange}
         className="projections-table"
       />
+      <Modal
+  title="Xác nhận xóa suất chiếu"
+  open={deleteModalVisible}
+  onOk={handleDeleteConfirm}
+  onCancel={handleDeleteCancel}
+  okText="Xóa"
+  cancelText="Hủy"
+  okType="danger"
+>
+  {projectionToDelete && (
+    <div>
+      <p><strong>Phim:</strong> {projectionToDelete.film ? projectionToDelete.film.title : 'N/A'}</p>
+      <p><strong>Phòng chiếu:</strong> {projectionToDelete.room && projectionToDelete.room.roomNumber ? projectionToDelete.room.roomNumber : 'N/A'}</p>
+      <p><strong>Thời gian:</strong> {formatDateTime(projectionToDelete.startTime)} - {formatDateTime(projectionToDelete.endTime)}</p>
+      <p><strong>Giá vé:</strong> {projectionToDelete.price ? projectionToDelete.price.toLocaleString('vi-VN') : 'N/A'} VNĐ</p>
+      <p style={{ color: 'red' }}>Việc xóa có thể ảnh hưởng đến các đặt vé đã có.</p>
+    </div>
+  )}
+</Modal>
     </div>
   );
 };

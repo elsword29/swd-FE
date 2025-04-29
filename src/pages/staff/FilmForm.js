@@ -6,23 +6,21 @@ import {
   Select, 
   InputNumber, 
   DatePicker, 
-  Upload, 
   Typography, 
   Divider, 
   Row, 
   Col, 
   message, 
-  Spin 
+  Spin,
+  Image 
 } from 'antd';
 import { 
-  UploadOutlined, 
   SaveOutlined, 
-  RollbackOutlined, 
-  DeleteOutlined 
+  RollbackOutlined
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import moment from 'moment';
-import { movieService, genreService } from '../../services/api';
+import { movieService } from '../../services/api';
 import '../style/FilmForm.css';
 
 const { Title, Text } = Typography;
@@ -36,39 +34,16 @@ const FilmForm = ({ mode = 'add' }) => {
   
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [genres, setGenres] = useState([]);
-  const [posterFile, setPosterFile] = useState(null);
   const [posterPreview, setPosterPreview] = useState('');
   
-  // Status options for a film
+  // Status options for a film with values matching API requirements
   const statusOptions = [
-    { value: 'Đang chiếu', label: 'Đang chiếu' },
-    { value: 'Sắp chiếu', label: 'Sắp chiếu' },
-    { value: 'Ngừng chiếu', label: 'Ngừng chiếu' },
-  ];
-  
-  // Age rating options
-  const ratingOptions = [
-    { value: 'P', label: 'P - Phim dành cho mọi lứa tuổi' },
-    { value: 'C13', label: 'C13 - Phim cấm khán giả dưới 13 tuổi' },
-    { value: 'C16', label: 'C16 - Phim cấm khán giả dưới 16 tuổi' },
-    { value: 'C18', label: 'C18 - Phim cấm khán giả dưới 18 tuổi' },
+    { value: 0, label: 'Sắp chiếu' },
+    { value: 1, label: 'Đang chiếu' },
+    { value: 3, label: 'Ngừng chiếu' },
   ];
 
   useEffect(() => {
-    // Fetch genres
-    const fetchGenres = async () => {
-      try {
-        const response = await genreService.getAll();
-        setGenres(response.data);
-      } catch (error) {
-        console.error("Error fetching genres:", error);
-        message.error('Không thể tải danh sách thể loại');
-      }
-    };
-
-    fetchGenres();
-
     // If in edit mode, fetch film details
     if (mode === 'edit' && id) {
       fetchFilmDetails(id);
@@ -85,13 +60,17 @@ const FilmForm = ({ mode = 'add' }) => {
       const formData = {
         ...film,
         releaseDate: film.releaseDate ? moment(film.releaseDate) : null,
-        genreIds: film.filmGenres ? film.filmGenres.map(fg => fg.genreId) : [],
+        // Convert status to number if it's not already
+        status: typeof film.status === 'number' ? film.status : 
+                 film.status === 'Sắp chiếu' ? 0 : 
+                 film.status === 'Đang chiếu' ? 1 : 
+                 film.status === 'Ngừng chiếu' ? 3 : 0
       };
       
       form.setFieldsValue(formData);
       
-      if (film.posterURL) {
-        setPosterPreview(film.posterURL);
+      if (film.imageURL) {
+        setPosterPreview(film.imageURL);
       }
       
       setLoading(false);
@@ -102,22 +81,10 @@ const FilmForm = ({ mode = 'add' }) => {
     }
   };
 
-  const handlePosterChange = info => {
-    if (info.file.status === 'uploading') {
-      return;
-    }
-    
-    if (info.file.status === 'done') {
-      // Get the uploaded file
-      setPosterFile(info.file.originFileObj);
-      
-      // Generate preview URL
-      const reader = new FileReader();
-      reader.onload = () => {
-        setPosterPreview(reader.result);
-      };
-      reader.readAsDataURL(info.file.originFileObj);
-    }
+  const handlePosterUrlChange = (e) => {
+    const url = e.target.value;
+    setPosterPreview(url);
+    form.setFieldsValue({ imageURL: url });
   };
 
   const handleSubmit = async (values) => {
@@ -128,13 +95,13 @@ const FilmForm = ({ mode = 'add' }) => {
       const filmData = {
         ...values,
         releaseDate: values.releaseDate ? values.releaseDate.format('YYYY-MM-DD') : null,
+        // Make sure status is a number
+        status: Number(values.status),
+        // Set filmGenres to empty string as per API sample
+        filmGenres: ""
       };
 
       let response;
-      
-      // If we have a poster file, we would normally upload it first and get the URL
-      // For this example, we'll assume the posterURL is directly set in the form
-      // In a real app, you'd handle file uploads separately
       
       if (mode === 'add') {
         response = await movieService.create(filmData);
@@ -190,7 +157,7 @@ const FilmForm = ({ mode = 'add' }) => {
         onFinish={handleSubmit}
         className="film-form"
         initialValues={{
-          status: 'Sắp chiếu',
+          status: 0,
           duration: 90,
         }}
       >
@@ -286,52 +253,9 @@ const FilmForm = ({ mode = 'add' }) => {
                 </Form.Item>
               </Col>
               
-              <Col xs={24} sm={12}>
-                <Form.Item
-                  name="rating"
-                  label="Phân loại"
-                  rules={[{ 
-                    required: true, 
-                    message: 'Vui lòng chọn phân loại độ tuổi' 
-                  }]}
-                >
-                  <Select placeholder="Chọn phân loại độ tuổi">
-                    {ratingOptions.map(option => (
-                      <Option key={option.value} value={option.value}>
-                        {option.label}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              
               <Col span={24}>
                 <Form.Item
-                  name="genreIds"
-                  label="Thể loại"
-                  rules={[{ 
-                    required: true,
-                    message: 'Vui lòng chọn ít nhất một thể loại',
-                    type: 'array', 
-                  }]}
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Chọn thể loại"
-                    style={{ width: '100%' }}
-                  >
-                    {genres.map(genre => (
-                      <Option key={genre.id} value={genre.id}>
-                        {genre.name}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              
-              <Col span={24}>
-                <Form.Item
-                  name="summary"
+                  name="description"
                   label="Tóm tắt nội dung"
                 >
                   <TextArea rows={4} placeholder="Nhập tóm tắt nội dung phim" />
@@ -340,7 +264,7 @@ const FilmForm = ({ mode = 'add' }) => {
               
               <Col span={24}>
                 <Form.Item
-                  name="trailerUrl"
+                  name="trailerURL"
                   label="URL Trailer"
                 >
                   <Input placeholder="Nhập URL trailer (YouTube)" />
@@ -360,50 +284,33 @@ const FilmForm = ({ mode = 'add' }) => {
           
           <Col xs={24} sm={24} md={8} lg={6}>
             <Form.Item
-              name="posterURL"
-              label="Poster phim"
-              valuePropName="fileList"
-              getValueFromEvent={(e) => {
-                if (Array.isArray(e)) {
-                  return e;
-                }
-                return e && e.fileList;
-              }}
+              name="imageURL"
+              label="URL Poster phim"
+              rules={[{ 
+                required: true, 
+                message: 'Vui lòng nhập URL poster phim' 
+              }]}
             >
-              <div className="poster-upload-container">
-                {posterPreview ? (
-                  <div className="poster-preview">
-                    <img src={posterPreview} alt="Poster preview" />
-                    <Button 
-                      icon={<DeleteOutlined />} 
-                      onClick={() => {
-                        setPosterPreview('');
-                        setPosterFile(null);
-                        form.setFieldsValue({ posterURL: undefined });
-                      }}
-                      danger
-                      className="delete-poster-btn"
-                    />
-                  </div>
-                ) : (
-                  <Upload
-                    name="poster"
-                    listType="picture-card"
-                    showUploadList={false}
-                    beforeUpload={() => false}
-                    onChange={handlePosterChange}
-                  >
-                    <div className="upload-button">
-                      <UploadOutlined />
-                      <div style={{ marginTop: 8 }}>Tải lên</div>
-                    </div>
-                  </Upload>
-                )}
-                <Text type="secondary" className="upload-hint">
-                  Kích thước khuyến nghị: 500x750 pixel
-                </Text>
-              </div>
+              <Input 
+                placeholder="Nhập URL hình ảnh poster" 
+                onChange={handlePosterUrlChange}
+              />
             </Form.Item>
+            
+            {posterPreview && (
+              <div className="poster-preview" style={{ marginTop: '16px' }}>
+                <Image
+                  src={posterPreview}
+                  alt="Poster preview"
+                  style={{ maxWidth: '100%' }}
+                  fallback="https://via.placeholder.com/500x750?text=Image+Error"
+                />
+              </div>
+            )}
+            
+            <Text type="secondary" className="upload-hint" style={{ display: 'block', marginTop: '8px' }}>
+              Kích thước khuyến nghị: 500x750 pixel
+            </Text>
           </Col>
         </Row>
         

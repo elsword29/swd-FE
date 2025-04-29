@@ -14,8 +14,18 @@ import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
 import BookingPage from './pages/BookingPage';
 import PaymentCallback from './pages/PaymentCallback';
-import StaffDashboard from './pages/StaffDashboard';
 
+// Staff Pages
+//import StaffLoginPage from './pages/staff/StaffLoginPage';
+import StaffLayout from './pages/staff/StaffLayout';
+import StaffDashboard from './pages/staff/StaffDashboard';
+import FilmsManagementPage from './pages/staff/FilmsManagementPage';
+import FilmForm from './pages/staff/FilmForm';
+import GenresManagementPage from './pages/staff/GenresManagementPage';
+import ProjectionsManagementPage from './pages/staff/ProjectionsManagementPage';
+import ProjectionForm from './pages/staff/ProjectionForm';
+import BookingsManagementPage from './pages/staff/BookingsManagementPage';
+import FilmGenreForm from './pages/staff/FilmGenreForm';
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
   
@@ -69,6 +79,36 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+
+            <Route 
+              path="/staff"
+              element={
+                
+                  <StaffLayout />
+                
+              }
+            >
+              <Route index element={<StaffDashboard />} />
+              <Route path="dashboard" element={<StaffDashboard />} />
+              
+              {/* Film Management Routes */}
+              <Route path="films" element={<FilmsManagementPage />} />
+              <Route path="films/add" element={<FilmForm mode="add" />} />
+              <Route path="films/edit/:id" element={<FilmForm mode="edit" />} />
+              <Route path="/staff/films/:id/genres" element={<FilmGenreForm />} />
+              
+              {/* Genre Management Routes */}
+              <Route path="genres" element={<GenresManagementPage />} />
+              
+              {/* Projection Management Routes */}
+              <Route path="projections" element={<ProjectionsManagementPage />} />
+              <Route path="projections/add" element={<ProjectionForm mode="add" />} />
+              <Route path="projections/edit/:id" element={<ProjectionForm mode="edit" />} />
+              
+              {/* Booking Management Routes */}
+              <Route path="bookings" element={<BookingsManagementPage />} />
+            </Route>
+
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </BookingProvider>
