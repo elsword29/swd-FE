@@ -128,7 +128,7 @@ const PaymentCallback = () => {
   }, [location, backendUrl, setSelectedSeats, resetBooking, setRecentTickets]);
 
   const handleBack = () => {
-    navigate('/booking/history');
+    navigate('/booking-history');
   };
 
   return (
