@@ -1,12 +1,12 @@
-// BookingHistoryPage.js
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { Pagination } from 'antd';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import { useAuth } from '../context/AuthContext';
+import { ticketService, authService } from '../services/api';
 
 const PageContainer = styled.div`
   background-color: #0f0f1e;
@@ -45,6 +45,12 @@ const BookingHeader = styled.div`
 
 const BookingTitle = styled.h3`
   font-size: 1.2rem;
+  cursor: pointer;
+  color: #e94560;
+  
+  &:hover {
+    text-decoration: underline;
+  }
 `;
 
 const BookingStatus = styled.span`
@@ -70,9 +76,16 @@ const Button = styled.button`
   border-radius: 4px;
   font-weight: bold;
   cursor: pointer;
+  margin-top: 1rem;
   &:hover {
     background: #ff6b81;
   }
+`;
+
+const PaginationContainer = styled.div`
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
 `;
 
 const BookingHistoryPage = () => {
@@ -81,12 +94,12 @@ const BookingHistoryPage = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const backendUrl =
-    process.env.REACT_APP_API_URL ||
-    'https://galaxycinema-a6eeaze9afbagaft.southeastasia-01.azurewebsites.net';
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser || !currentUser.id) {
       navigate('/login');
       return;
     }
@@ -94,16 +107,20 @@ const BookingHistoryPage = () => {
     const fetchBookings = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(
-          `${backendUrl}/api/Ticket/getallmyticket/1/10`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          }
-        );
-        setBookings(response.data.items);
+        setError(null);
+
+        const response = await ticketService.getTicketsByUserId(currentUser.id, currentPage, pageSize);
+        const data = response.data;
+
+        // Giả định API trả về { items: [], totalItems: number }
+        setBookings(data.items || []);
+        setTotalItems(data.totalItems || data.items?.length || 0);
       } catch (err) {
+        console.error('Error fetching bookings:', err);
+        if (err.response?.status === 401) {
+          await authService.logout();
+          navigate('/login');
+        }
         setError('Không thể tải lịch sử đặt vé. Vui lòng thử lại sau.');
       } finally {
         setLoading(false);
@@ -111,7 +128,23 @@ const BookingHistoryPage = () => {
     };
 
     fetchBookings();
-  }, [currentUser, navigate, backendUrl]);
+  }, [currentUser, navigate, currentPage, pageSize]);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handleViewDetails = async (appTransId) => {
+    try {
+      const response = await ticketService.getTicketByAppTransId(appTransId);
+      const bookingDetails = response.data;
+      // Chuyển hướng đến trang chi tiết
+      navigate(`/booking-details/${appTransId}`, { state: { bookingDetails } });
+    } catch (err) {
+      console.error('Error fetching booking details:', err);
+      setError('Không thể tải chi tiết vé. Vui lòng thử lại.');
+    }
+  };
 
   const formatPrice = price =>
     new Intl.NumberFormat('vi-VN', {
@@ -130,51 +163,64 @@ const BookingHistoryPage = () => {
         {bookings.length === 0 ? (
           <p>Bạn chưa có vé nào được đặt.</p>
         ) : (
-          <BookingList>
-            {bookings.map(booking => {
-              const firstTicket = booking.tickets[0] || {};
-              const isPaymentSuccess = booking.tickets.every(t => t.isPaymentSuccess);
-              const totalPrice = booking.tickets.reduce((sum, ticket) => sum + ticket.price, 0);
-              const seats = booking.tickets.map(ticket => ticket.seatNumber);
+          <>
+            <BookingList>
+              {bookings.map(booking => {
+                const firstTicket = booking.tickets[0] || {};
+                const isPaymentSuccess = booking.tickets.every(t => t.isPaymentSuccess);
+                const totalPrice = booking.tickets.reduce((sum, ticket) => sum + ticket.price, 0);
+                const seats = booking.tickets.map(ticket => ticket.seatNumber);
 
-              return (
-                <BookingCard key={booking.appTransId}>
-                  <BookingHeader>
-                    <BookingTitle>Mã giao dịch: {booking.appTransId}</BookingTitle>
-                    <BookingStatus success={isPaymentSuccess}>
-                      {isPaymentSuccess ? 'Thành công' : 'Thất bại'}
-                    </BookingStatus>
-                  </BookingHeader>
-                  <BookingDetails>
-                    <DetailRow>
-                      <span>Phim:</span>
-                      <span>{firstTicket.title || 'N/A'}</span>
-                    </DetailRow>
-                    <DetailRow>
-                      <span>Phòng chiếu:</span>
-                      <span>{firstTicket.roomNumber || 'N/A'}</span>
-                    </DetailRow>
-                    <DetailRow>
-                      <span>Suất chiếu:</span>
-                      <span>
-                        {firstTicket.startTime
-                          ? `${format(new Date(firstTicket.startTime), 'dd/MM/yyyy HH:mm')} - ${format(new Date(firstTicket.endTime || new Date(firstTicket.startTime).setHours(new Date(firstTicket.startTime).getHours() + 2)), 'HH:mm')}`
-                          : 'N/A'}
-                      </span>
-                    </DetailRow>
-                    <DetailRow>
-                      <span>Ghế:</span>
-                      <span>{seats.join(', ') || 'N/A'}</span>
-                    </DetailRow>
-                    <DetailRow>
-                      <span>Tổng tiền:</span>
-                      <span>{formatPrice(totalPrice)}</span>
-                    </DetailRow>
-                  </BookingDetails>
-                </BookingCard>
-              );
-            })}
-          </BookingList>
+                return (
+                  <BookingCard key={booking.appTransId}>
+                    <BookingHeader>
+                      <BookingTitle onClick={() => handleViewDetails(booking.appTransId)}>
+                        Mã giao dịch: {booking.appTransId}
+                      </BookingTitle>
+                      <BookingStatus success={isPaymentSuccess}>
+                        {isPaymentSuccess ? 'Thành công' : 'Thất bại'}
+                      </BookingStatus>
+                    </BookingHeader>
+                    <BookingDetails>
+                      <DetailRow>
+                        <span>Phim:</span>
+                        <span>{firstTicket.title || 'N/A'}</span>
+                      </DetailRow>
+                      <DetailRow>
+                        <span>Phòng chiếu:</span>
+                        <span>{firstTicket.roomNumber || 'N/A'}</span>
+                      </DetailRow>
+                      <DetailRow>
+                        <span>Suất chiếu:</span>
+                        <span>
+                          {firstTicket.startTime
+                            ? `${format(new Date(firstTicket.startTime), 'dd/MM/yyyy HH:mm')} - ${format(new Date(firstTicket.endTime || new Date(firstTicket.startTime).setHours(new Date(firstTicket.startTime).getHours() + 2)), 'HH:mm')}`
+                            : 'N/A'}
+                        </span>
+                      </DetailRow>
+                      <DetailRow>
+                        <span>Ghế:</span>
+                        <span>{seats.join(', ') || 'N/A'}</span>
+                      </DetailRow>
+                      <DetailRow>
+                        <span>Tổng tiền:</span>
+                        <span>{formatPrice(totalPrice)}</span>
+                      </DetailRow>
+                    </BookingDetails>
+                  </BookingCard>
+                );
+              })}
+            </BookingList>
+            <PaginationContainer>
+              <Pagination
+                current={currentPage}
+                pageSize={pageSize}
+                total={totalItems}
+                onChange={handlePageChange}
+                showSizeChanger={false}
+              />
+            </PaginationContainer>
+          </>
         )}
         <Button onClick={() => navigate('/')}>Quay Lại Trang Chủ</Button>
       </ContentContainer>

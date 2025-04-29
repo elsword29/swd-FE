@@ -287,14 +287,14 @@ const SeatSelectionPage = () => {
       try {
         setLoading(true);
         const roomId = showTime.room.id;
-
+        
         const roomResponse = await seatService.getRoomById(roomId);
         if (!roomResponse.data) {
           throw new Error('Không tìm thấy thông tin phòng chiếu.');
         }
         setRoomInfo(roomResponse.data);
 
-        const seatsResponse = await seatService.getByShowTimeId(showTime.id);
+        const seatsResponse = await seatService.getByRoomId(roomId);
         if (!seatsResponse.data) {
           throw new Error('Không tìm thấy thông tin ghế.');
         }
@@ -313,54 +313,57 @@ const SeatSelectionPage = () => {
   useEffect(() => {
     if (!roomInfo || !showTime) return;
 
-    const rowCount = parseInt(roomInfo.row) || 8;
-    const seatsPerRow = parseInt(roomInfo.seatInRow) || 1;
-    if (rowCount <= 0 || seatsPerRow <= 0) {
-      setError('Thông tin phòng không hợp lệ: số hàng hoặc số ghế trên mỗi hàng không đúng.');
-      setTimeout(() => navigate(movie ? `/movies/${movie.id}` : '/movies'), 3000);
+    // Kiểm tra seats có phải là mảng không và mảng này không rỗng
+    if (!Array.isArray(seats) || seats.length === 0) {
+      console.error('No seats available for this showtime.');
+      setSeatMap([]);
       return;
     }
-
-    const rows = Array.from({ length: rowCount }, (_, i) => String.fromCharCode(65 + i));
-
-    const map = [];
-    rows.forEach(row => {
-      const rowSeats = [];
-      for (let num = 1; num <= seatsPerRow; num++) {
-        const seatFromApi = seats.find(
-          s => (s.Row || s.row) === row && (s.SeatNumber || s.seatNumber) === num.toString()
-        );
-        if (seatFromApi) {
+  
+    const uniqueRows = [...new Set(seats.map(seat => (seat.Row || seat.row)))];
+  
+    const uniqueSeats = [];
+    const seatSet = new Set();
+  
+    for (const seat of seats) {
+      const key = `${seat.Row || seat.row}-${seat.SeatNumber || seat.seatNumber}`;
+      if (!seatSet.has(key)) {
+        seatSet.add(key);
+        uniqueSeats.push(seat);
+      }
+    }
+  
+    const map = uniqueRows.map(row => {
+      const seatsInRow = uniqueSeats
+        .filter(seat => (seat.Row || seat.row) === row)
+        .map(seat => {
           const isAvailable =
-            !seatFromApi.Tickets ||
-            seatFromApi.Tickets.length === 0 ||
-            !seatFromApi.Tickets.some(ticket => ticket.ProjectionId === showTime.id);
-          const seatType = seatFromApi.IsVip ? 'vip' : 'standard';
-          const seatPrice = seatFromApi.IsVip ? showTime.price * 1.2 : showTime.price;
-
-          rowSeats.push({
-            id: seatFromApi.Id || seatFromApi.id,
+            !seat.tickets ||
+            seat.tickets.length === 0 ||
+            !seat.tickets.some(ticket => ticket.projectionId === showTime.id);
+  
+          const seatType = seat.isVip ? 'vip' : 'standard';
+          const seatPrice = seat.isVip ? showTime.price * 1.2 : showTime.price;
+  
+          return {
+            id: seat.Id || seat.id,
             showTimeId: showTime.id,
-            row: seatFromApi.Row || seatFromApi.row,
-            number: parseInt(seatFromApi.SeatNumber || seatFromApi.seatNumber),
+            row: seat.Row || seat.row,
+            number: parseInt(seat.SeatNumber || seat.seatNumber),
             type: seatType,
             price: seatPrice,
             isAvailable: isAvailable,
-          });
-        } else {
-          rowSeats.push({
-            id: `missing-${row}-${num}`,
-            showTimeId: showTime.id,
-            row,
-            number: num,
-            type: 'standard',
-            price: showTime.price,
-            isAvailable: false,
-          });
-        }
-      }
-      map.push({ row, seats: rowSeats });
+          };
+        });
+  
+      seatsInRow.sort((a, b) => a.number - b.number);
+  
+      return {
+        row,
+        seats: seatsInRow,
+      };
     });
+    console.log(map);
     setSeatMap(map);
   }, [seats, showTime, roomInfo, navigate, movie]);
 

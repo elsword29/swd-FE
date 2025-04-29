@@ -11,6 +11,9 @@ const PageContainer = styled.div`
   background-color: #0f0f1e;
   color: #fff;
   min-height: 100vh;
+  background-image: url('https://cdn.galaxycine.vn/media/2024/8/20/galaxy-sala_1724145166036.jpg');
+  background-size: cover;
+  background-position: center;
 `;
 
 const ContentContainer = styled.div`
@@ -22,8 +25,10 @@ const ContentContainer = styled.div`
 const FormContainer = styled.div`
   background: #16213e;
   border-radius: 8px;
-  padding: 2rem;
+  padding: 2rem 1.5rem;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  box-sizing: border-box;
 `;
 
 const PageTitle = styled.h1`
@@ -40,6 +45,7 @@ const Form = styled.div`
 
 const FormGroup = styled.div`
   position: relative;
+  width: 100%;
 `;
 
 const FormIcon = styled.span`
@@ -60,6 +66,7 @@ const Input = styled.input`
   background-color: #1a1a2e;
   color: white;
   font-size: 1rem;
+  box-sizing: border-box;
   
   &:focus {
     outline: none;
@@ -92,16 +99,17 @@ const ToggleContainer = styled.div`
   display: flex;
   justify-content: center;
   margin-top: 1.5rem;
+  gap: 0.5rem;
 `;
 
 const ToggleText = styled.p`
   color: #a0a0a0;
+  margin: 0;
 `;
 
 const ToggleLink = styled.span`
   color: #e94560;
   cursor: pointer;
-  margin-left: 0.5rem;
   
   &:hover {
     text-decoration: underline;
@@ -179,7 +187,6 @@ const LoginPage = () => {
       setLoading(true);
       setError(null);
 
-      // Thêm log để kiểm tra dữ liệu gửi lên API
       console.log('Form data:', formData);
 
       if (isLogin) {
@@ -212,7 +219,6 @@ const LoginPage = () => {
         });
       }
     } catch (err) {
-      // Thêm log để kiểm tra lỗi chi tiết
       console.error('Submit error:', err);
       setError(err.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
@@ -295,6 +301,16 @@ const LoginPage = () => {
               {isLogin ? 'Đăng ký ngay' : 'Đăng nhập'}
             </ToggleLink>
           </ToggleContainer>
+          {isLogin && (
+            <ToggleContainer>
+              <ToggleText>
+                Đăng nhập với tư cách:
+              </ToggleText>
+              <ToggleLink onClick={() => setIsStaffLogin(!isStaffLogin)}>
+                {isStaffLogin ? 'Khách hàng' : 'Nhân viên'}
+              </ToggleLink>
+            </ToggleContainer>
+          )}
         </FormContainer>
       </ContentContainer>
     </PageContainer>

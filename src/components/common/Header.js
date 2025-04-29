@@ -78,7 +78,7 @@ const Header = () => {
 
   return (
     <HeaderContainer>
-      <Logo to="/">Cinema<span style={{ color: 'white' }}>Booking</span></Logo>
+      <Logo to="/">Galaxy<span style={{ color: 'white' }}>Booking</span></Logo>
       
       <Nav>
         <NavLink to="/">Trang chủ</NavLink>
@@ -86,8 +86,9 @@ const Header = () => {
         
         {currentUser ? (
           <UserMenu>
+            <NavLink to="/booking-history">Lịch Sử Đặt Vé</NavLink>
             <NavLink to="/profile">
-              <FaUser /> <UserName>{currentUser.name}</UserName>
+              <FaUser /> <UserName>{currentUser.name || currentUser.fullName || 'Người dùng'}</UserName>
             </NavLink>
             <UserButton onClick={handleLogout}>
               <FaSignOutAlt /> <UserName>Đăng xuất</UserName>

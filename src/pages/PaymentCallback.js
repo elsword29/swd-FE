@@ -107,7 +107,7 @@ const PaymentCallback = () => {
           const tickets = data[0]?.tickets || [];
           if (tickets.length > 0) {
             const { title, startTime, endTime, roomNumber } = tickets[0];
-            const seats = tickets.map(ticket => ticket.seatNumber);
+            const seats = tickets.map(ticket => ticket.seatName);
         
             setTicketDetails({
               title,
